@@ -162,8 +162,13 @@ const AdminDashboard: React.FC = () => {
                 </select>
               </div>
               {selectedConversationIndex !== null ? (
-                <div className="border rounded p-4 h-96 overflow-y-auto space-y-4">
-                  {conversations[selectedConversationIndex].messages.map(
+                <div
+                  className="border rounded p-6 flex-grow overflow-y-auto space-y-4"
+                  style={{
+                    maxHeight: "calc(100vh - 200px)",
+                  }}
+                >
+                  {conversations[selectedConversationIndex]?.messages.map(
                     (msg, index) => (
                       <div
                         key={index}
@@ -174,7 +179,7 @@ const AdminDashboard: React.FC = () => {
                         }`}
                       >
                         <div
-                          className={`p-2 rounded-lg max-w-xs ${
+                          className={`p-3 rounded-lg max-w-sm break-words ${
                             msg.startsWith("Agent")
                               ? "bg-black text-white"
                               : "bg-white text-black border border-gray-300"

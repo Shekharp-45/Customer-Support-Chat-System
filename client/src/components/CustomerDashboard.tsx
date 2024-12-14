@@ -24,7 +24,7 @@ const CustomerDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
-      <NavbarList />
+      <NavbarList/>
       <button
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
         className="lg:hidden p-4 bg-gray-200 text-black border-b border-gray-300"
