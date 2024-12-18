@@ -21,9 +21,9 @@ const Navbar: React.FC<NavbarProps> = ({ title = "Dashboard" }) => {
           </span>{" "}
         </div>
 
-        <button className="p-2 rounded-full focus:outline-none" title="Logout">
+        <button className="p-2 rounded-full focus:outline-none" title="login">
           <Link
-            to="/auth/login"
+            to="login"
             className="px-6 py-2 bg-black text-white text-base font-medium rounded hover:bg-gray-800 transition duration-200 ease-in-out"
           >
             Log In
@@ -33,5 +33,4 @@ const Navbar: React.FC<NavbarProps> = ({ title = "Dashboard" }) => {
     </nav>
   );
 };
-
 export default Navbar;

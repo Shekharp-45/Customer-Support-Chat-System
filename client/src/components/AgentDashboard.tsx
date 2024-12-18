@@ -4,6 +4,9 @@ import NavbarList from "../components/Navbar.tsx";
 const AgentDashboard: React.FC = () => {
   const [selectedCustomer, setSelectedCustomer] = useState<string | null>(null);
   const [message, setMessage] = useState<string>("");
+  const [isCustomerListVisible, setIsCustomerListVisible] = useState<boolean>(
+    true
+  );
 
   const customers = [
     { name: "Customer 1", issue: "Windows: Account issue" },
@@ -54,13 +57,28 @@ const AgentDashboard: React.FC = () => {
       <NavbarList />
 
       <div className="flex flex-1">
-        <div className="w-1/5 bg-white shadow-md h-screen p-4">
+        <div
+          className={`absolute z-10 lg:relative lg:z-auto w-full lg:w-1/5 bg-white shadow-md h-screen lg:h-auto p-4 transform ${
+            isCustomerListVisible
+              ? "translate-x-0"
+              : "-translate-x-full lg:translate-x-0"
+          } transition-transform`}
+        >
+          <button
+            className="block lg:hidden mb-4 text-red-500"
+            onClick={() => setIsCustomerListVisible(false)}
+          >
+            Close
+          </button>
           <h2 className="text-lg font-bold mb-4">Customers</h2>
           <div className="flex flex-col gap-2">
             {customers.map((customer) => (
               <button
                 key={customer.name}
-                onClick={() => setSelectedCustomer(customer.name)}
+                onClick={() => {
+                  setSelectedCustomer(customer.name);
+                  setIsCustomerListVisible(false);
+                }}
                 className={`px-4 py-2 text-left rounded ${
                   selectedCustomer === customer.name
                     ? "bg-gray-300 text-black"
@@ -77,16 +95,30 @@ const AgentDashboard: React.FC = () => {
             ))}
           </div>
         </div>
-        <div className="flex-1 p-4">
+
+        <div className="flex-1 flex flex-col lg:ml-0">
+          <button
+            className="block lg:hidden mb-4 px-4 py-2 bg-gray-700 text-white rounded shadow hover:bg-gray-600"
+            onClick={() => setIsCustomerListVisible(true)}
+          >
+            Show Customers
+          </button>
           {selectedCustomer ? (
-            <div className="flex flex-col h-full">
+            <div className="m-4 flex flex-1 flex-col h-full ">
               <h2 className="text-2xl font-bold mb-4">
                 Chat with {selectedCustomer}
               </h2>
               <div className="flex-1 p-4 border rounded bg-white shadow-md overflow-y-auto">
                 {chatHistory[selectedCustomer]?.messages.length > 0 ? (
                   chatHistory[selectedCustomer].messages.map((msg, index) => (
-                    <div key={index} className="mb-4">
+                    <div
+                      key={index}
+                      className={`mb-4 p-2 rounded ${
+                        msg.startsWith("Agent:")
+                          ? "bg-gray-200 text-black self-end"
+                          : "bg-white text-black"
+                      }`}
+                    >
                       <p>{msg}</p>
                       <p className="text-xs text-gray-400">
                         {chatHistory[selectedCustomer]?.timestamps[index]}
@@ -97,7 +129,7 @@ const AgentDashboard: React.FC = () => {
                   <p className="text-gray-400">No messages yet...</p>
                 )}
               </div>
-              <div className="flex items-center mt-4">
+              <div className="mt-4 flex items-center p-4 border-t bg-gray-50">
                 <input
                   type="text"
                   value={message}
@@ -114,7 +146,7 @@ const AgentDashboard: React.FC = () => {
               </div>
             </div>
           ) : (
-            <p className="text-gray-400">
+            <p className="text-gray-400 flex items-center justify-center flex-1">
               Select a customer to start chatting.
             </p>
           )}

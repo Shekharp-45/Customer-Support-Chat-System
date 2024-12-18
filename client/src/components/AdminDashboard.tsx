@@ -14,7 +14,6 @@ const AdminDashboard: React.FC = () => {
     { fullName: string; email: string; mobile: string }[]
   >([]);
   const [selectedView, setSelectedView] = useState<string>("Add Agents");
-  // eslint-disable-next-line
   const [conversations, setConversations] = useState<Conversation[]>([
     {
       customer: "Customer 1",
@@ -60,7 +59,7 @@ const AdminDashboard: React.FC = () => {
     number | null
   >(null);
 
-  // Loading the agents from localStorage when the component mounts
+  // Load agents from localStorage
   useEffect(() => {
     const storedAgents = localStorage.getItem("agents");
     if (storedAgents) {
@@ -68,7 +67,7 @@ const AdminDashboard: React.FC = () => {
     }
   }, []);
 
-  // Save the agents to localStorage whenever the agents state changes
+  // Save agents to localStorage
   useEffect(() => {
     if (agents.length > 0) {
       localStorage.setItem("agents", JSON.stringify(agents));
@@ -92,8 +91,8 @@ const AdminDashboard: React.FC = () => {
     <div className="min-h-screen bg-gray-100 flex flex-col">
       <NavbarList />
 
-      <div className="flex flex-1">
-        <div className="w-1/5 bg-white shadow-md h-screen p-4">
+      <div className="flex flex-1 flex-col lg:flex-row">
+        <div className="w-full lg:w-1/5 bg-white shadow-md p-4 lg:h-screen">
           <h2 className="text-lg font-bold mb-4">Admin Panel</h2>
           <button
             onClick={() => setSelectedView("Add Agents")}
@@ -205,3 +204,4 @@ const AdminDashboard: React.FC = () => {
 };
 
 export default AdminDashboard;
+
