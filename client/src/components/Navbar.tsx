@@ -4,7 +4,11 @@ import logo from "../assets/logo.png";
 import { useAuth } from "../context/AuthContext.tsx";
 
 const Navbar: React.FC = () => {
-  const { isAuthenticated, userRole, logout } = useAuth();
+  const { user, logout } = useAuth();
+
+  const handleLogout = () => {
+    logout(); // Clear authentication state
+  };
 
   return (
     <nav className="bg-white text-black shadow-md z-30">
@@ -15,20 +19,23 @@ const Navbar: React.FC = () => {
             Support Connect
           </span>
         </div>
-        {!isAuthenticated ? (
+        {user ? (
+          // Show 'Sign Out' button when the user is logged in
+          <Link
+            to="/"
+            onClick={handleLogout}
+            className="px-3 py-1 bg-red-500 text-white text-base font-medium rounded hover:bg-red-800 transition duration-200 ease-in-out"
+          >
+            Sign Off
+          </Link>
+        ) : (
+          // Show 'Log In' button when the user is not logged in
           <Link
             to="/login"
             className="px-6 py-2 bg-black text-white text-base font-medium rounded hover:bg-gray-800 transition duration-200 ease-in-out"
           >
             Log In
           </Link>
-        ) : (
-          <button
-            onClick={logout}
-            className="px-6 py-2 bg-red-500 text-white text-base font-medium rounded hover:bg-red-600 transition duration-200 ease-in-out"
-          >
-            Sign Out
-          </button>
         )}
       </div>
     </nav>
