@@ -3,7 +3,7 @@ import { Routes, Route } from "react-router-dom";
 import HomePage from "./pages/HomePage.tsx";
 import Login from "./pages/LoginPage.tsx";
 import Register from "./pages/RegistrationPage.tsx";
-//import AdminDashboard from "./components/AdminDashboard.tsx";
+import AdminDashboard from "./components/AdminDashboard.tsx";
 import AgentDashboard from "./components/AgentDashboard.tsx";
 import CustomerDashboard from "./components/CustomerDashboard.tsx";
 import NotFoundPage from "./pages/NotFoundPage.tsx";
@@ -24,7 +24,14 @@ const App = () => (
     </ProtectedRoute>
   }
 />
-
+<Route
+  path="/admin"
+  element={
+    <ProtectedRoute allowedRoles={['admin']}>
+      <AdminDashboard />
+    </ProtectedRoute>
+  }
+/>
 <Route
   path="/customer"
   element={

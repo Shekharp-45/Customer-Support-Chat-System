@@ -49,10 +49,7 @@ const AdminDashboard: React.FC = () => {
     {
       customer: "Customer 2",
       agentName: "Jane Smith",
-      messages: [
-        "Customer: I have an issue with Android billing.",
-        "Agent: Let me check that for you.",
-      ],
+      messages: ["Customer: I have an issue with Android billing.", "Agent: Let me check that for you."],
     },
   ]);
   const [selectedConversationIndex, setSelectedConversationIndex] = useState<
@@ -74,14 +71,37 @@ const AdminDashboard: React.FC = () => {
     }
   }, [agents]);
 
-  const handleAddAgent = (agent: {
+  // Add agent to backend and update state
+  const onAddAgent = async (agent: {
     fullName: string;
     email: string;
     mobile: string;
   }) => {
-    setAgents((prev) => [...prev, agent]);
+    try {
+      const response = await fetch("http://localhost:5000/api/auth/admin", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(agent),
+      });
+      
+  
+      const data = await response.json();
+  
+      if (response.ok) {
+        alert(data.message);
+        // Update the local state with the newly added agent
+        setAgents((prev) => [...prev, agent]);
+      } else {
+        alert(data.message);
+      }
+    } catch (error) {
+      console.error("Error adding agent:", error);
+      alert("Something went wrong. Please try again.");
+    }
   };
-
+  
   const handleDeleteAgent = (agentIndex: number) => {
     const updatedAgents = agents.filter((_, index) => index !== agentIndex);
     setAgents(updatedAgents);
@@ -118,7 +138,7 @@ const AdminDashboard: React.FC = () => {
         <div className="flex-1 p-4">
           {selectedView === "Add Agents" && (
             <div>
-              <AddAgentForm onAddAgent={handleAddAgent} />
+              <AddAgentForm onAddAgent={onAddAgent} />
               <DisplayAgents
                 agents={agents}
                 onDeleteAgent={handleDeleteAgent}
@@ -204,4 +224,3 @@ const AdminDashboard: React.FC = () => {
 };
 
 export default AdminDashboard;
-

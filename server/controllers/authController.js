@@ -11,8 +11,13 @@ exports.registerController = async (req, res) => {
     return res.status(400).json({ errors: errors.array() });
   }
   const { name, email, password, role } = req.body;
-
+  
+  
   try {
+    const validRoles = ["admin", "agent", "customer"];
+  if (role && !validRoles.includes(role)) {
+    return res.status(400).json({ message: "Invalid role specified" });
+  }
     // Check if the user already exists
     const userExists = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
     if (userExists.rows.length > 0) {
@@ -35,7 +40,6 @@ exports.registerController = async (req, res) => {
     res.status(500).send("Server Error");
   }
 };
-
 // Login Controller
 exports.loginController = async (req, res) => {
   const { email, password } = req.body;
@@ -81,4 +85,54 @@ exports.loginController = async (req, res) => {
 };
 
 
+//add agents to db
+exports.addAgentController = async (req, res) => {
+  const { fullName, email, mobile } = req.body;
+
+  try {
+    // Insert data into the 'agents' table
+    const newAgent = await pool.query(
+      "INSERT INTO agents (name, email, mobile) VALUES ($1, $2, $3) RETURNING *",
+      [fullName, email, mobile]
+    );
+
+    res.status(201).json({ message: "Agent added successfully", agent: newAgent.rows[0] });
+  } catch (error) {
+    console.error(error.message);
+    if (error.code === "23505") {
+      // Handle unique constraint violation for email
+      res.status(400).json({ message: "Email already exists" });
+    } else {
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+};
+
+
   
+exports.agentLoginController = async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    // Check if agent exists
+    const agent = await pool.query("SELECT * FROM agents WHERE email = $1", [email]);
+    if (agent.rows.length === 0) {
+      return res.status(400).json({ message: "Invalid Credentials" });
+    }
+
+    // Compare passwords
+    const validPassword = await bcrypt.compare(password, agent.rows[0].password);
+    if (!validPassword) {
+      return res.status(400).json({ message: "Invalid Credentials" });
+    }
+
+    // Generate a JWT
+    const payload = { id: agent.rows[0].id, role: "agent" };
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN });
+
+    res.status(200).json({ token, message: "Agent login successful" });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server Error");
+  }
+};

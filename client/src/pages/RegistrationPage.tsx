@@ -54,6 +54,8 @@ const Register: React.FC = () => {
         navigate("/customer");
       } else if (role === "agent") {
         navigate("/agent");
+      } else if (role === "admin") {
+        navigate("/admin");
       }
     } catch (error: any) {
       setError(error.message || "An error occurred during registration.");
@@ -155,11 +157,10 @@ const Register: React.FC = () => {
               onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-300"
             >
-              <option value="" disabled>
-                Select Role
-              </option>
-              <option value="agent">Agent</option>
-              <option value="customer">Customer</option>
+             <option value="">Select Role</option>
+  <option value="customer">Customer</option>
+  <option value="agent">Agent</option>
+  <option value="admin">Admin</option>
             </select>
           </div>
           <button
