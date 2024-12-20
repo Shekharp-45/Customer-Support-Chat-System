@@ -7,6 +7,9 @@ const CustomerDashboard: React.FC = () => {
   const [message, setMessage] = useState<string>("");
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
 
+  // State to maintain chat history
+  const [chatHistory, setChatHistory] = useState<Record<string, string[]>>({});
+
   const supportCategories = ["Windows", "Android", "iOS"];
 
   const currentUser = {
@@ -17,14 +20,21 @@ const CustomerDashboard: React.FC = () => {
 
   const handleSendMessage = () => {
     if (message.trim() && selectedCategory) {
-      console.log(`Message to ${selectedCategory} Agent: ${message}`);
+      // Add message to the chat history for the selected category
+      setChatHistory((prevHistory) => ({
+        ...prevHistory,
+        [selectedCategory]: [
+          ...(prevHistory[selectedCategory] || []),
+          `You: ${message}`,
+        ],
+      }));
       setMessage("");
     }
   };
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
-      <NavbarList/>
+      <NavbarList />
       <button
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
         className="lg:hidden p-4 bg-gray-200 text-black border-b border-gray-300"
@@ -105,9 +115,17 @@ const CustomerDashboard: React.FC = () => {
                     Chat with {selectedCategory} Agent
                   </h3>
                   <div className="flex-1 p-2 border overflow-y-auto bg-gray-50">
-                    <p className="text-gray-400">
-                      Chat history will appear here...
-                    </p>
+                    {chatHistory[selectedCategory]?.length ? (
+                      chatHistory[selectedCategory].map((chat, index) => (
+                        <p key={index} className="text-gray-800">
+                          {chat}
+                        </p>
+                      ))
+                    ) : (
+                      <p className="text-gray-400">
+                        Chat history will appear here...
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center mt-4">
                     <input

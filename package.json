@@ -1,0 +1,23 @@
+{
+  "name": "customer-support-chat-system",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "client":"cd client && npm start",
+    "server":"cd server && npm start",
+    "dev":"concurrently \"npm run client\" \"npm run server\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Shekharp-45/Customer-Support-Chat-System.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Shekharp-45/Customer-Support-Chat-System/issues"
+  },
+  "homepage": "https://github.com/Shekharp-45/Customer-Support-Chat-System#readme",
+  "description": ""
+}

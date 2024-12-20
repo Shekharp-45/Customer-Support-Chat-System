@@ -1,16 +1,77 @@
-import React from "react";
-import { Link } from "react-router-dom";
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar.tsx";
 
 const Register: React.FC = () => {
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+    number: "",
+    role: "",
+  });
+
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const { name, email, password, number, role } = formData;
+
+    if (!name || !email || !password || !number || !role) {
+      setError("All fields are required.");
+      return;
+    }
+
+    setError(null);
+
+    try {
+      // Replace this with your actual API call
+      const response = await fetch("http://localhost:5000/api/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+      
+
+      if (!response.ok) {
+        throw new Error("Registration failed. Please try again.");
+      }
+
+      console.log("Registration successful:", formData);
+
+      // Redirect based on the role
+      if (role === "customer") {
+        navigate("/customer");
+      } else if (role === "agent") {
+        navigate("/agent");
+      }
+    } catch (error: any) {
+      setError(error.message || "An error occurred during registration.");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
       <Navbar />
       <div className="flex flex-1 items-center justify-center">
-        <form className="bg-white shadow-2xl rounded-lg p-8 w-96">
+        <form
+          onSubmit={handleSubmit}
+          className="bg-white shadow-2xl rounded-lg p-8 w-96"
+        >
           <h2 className="text-2xl font-bold text-gray-600 text-center mb-6">
             Register
           </h2>
+          {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
           <div className="mb-4">
             <label
               htmlFor="name"
@@ -23,6 +84,8 @@ const Register: React.FC = () => {
               id="name"
               name="name"
               placeholder="Full Name"
+              value={formData.name}
+              onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-300"
             />
           </div>
@@ -38,6 +101,8 @@ const Register: React.FC = () => {
               id="email"
               name="email"
               placeholder="Email"
+              value={formData.email}
+              onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-300"
             />
           </div>
@@ -53,21 +118,8 @@ const Register: React.FC = () => {
               id="password"
               name="password"
               placeholder="Password"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-300"
-            />
-          </div>
-          <div className="mb-4">
-            <label
-              htmlFor="confirm-password"
-              className="block text-sm font-bold text-gray-700 mb-2"
-            >
-              Confirm Password
-            </label>
-            <input
-              type="password"
-              id="confirm-password"
-              name="confirm-password"
-              placeholder="Confirm Password"
+              value={formData.password}
+              onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-300"
             />
           </div>
@@ -79,14 +131,36 @@ const Register: React.FC = () => {
               Mobile No.
             </label>
             <input
-              type="number"
+              type="tel"
               id="number"
               name="number"
               placeholder="Mobile Number"
-              min="1000000000"
-              max="9999999999"
+              pattern="[0-9]{10}"
+              value={formData.number}
+              onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-300"
             />
+          </div>
+          <div className="mb-4">
+            <label
+              htmlFor="role"
+              className="block text-sm font-bold text-gray-700 mb-2"
+            >
+              Role
+            </label>
+            <select
+              id="role"
+              name="role"
+              value={formData.role}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-300"
+            >
+              <option value="" disabled>
+                Select Role
+              </option>
+              <option value="agent">Agent</option>
+              <option value="customer">Customer</option>
+            </select>
           </div>
           <button
             type="submit"
