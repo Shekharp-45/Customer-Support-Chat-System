@@ -7,7 +7,7 @@ const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
 
   const handleLogout = () => {
-    logout(); // Clear authentication state
+    logout();
   };
 
   return (
@@ -20,7 +20,6 @@ const Navbar: React.FC = () => {
           </span>
         </div>
         {user ? (
-          // Show 'Sign Out' button when the user is logged in
           <Link
             to="/"
             onClick={handleLogout}
@@ -29,7 +28,6 @@ const Navbar: React.FC = () => {
             Sign Off
           </Link>
         ) : (
-          // Show 'Log In' button when the user is not logged in
           <Link
             to="/login"
             className="px-6 py-2 bg-black text-white text-base font-medium rounded hover:bg-gray-800 transition duration-200 ease-in-out"

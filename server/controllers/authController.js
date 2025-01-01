@@ -4,7 +4,7 @@ const jwt = require("jsonwebtoken");
 const pool = require("../config/db");
 require("dotenv").config();
 
-// User Registration
+
 exports.registerController = async (req, res) => {
     const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -18,17 +18,15 @@ exports.registerController = async (req, res) => {
   if (role && !validRoles.includes(role)) {
     return res.status(400).json({ message: "Invalid role specified" });
   }
-    // Check if the user already exists
+   
     const userExists = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
     if (userExists.rows.length > 0) {
       return res.status(400).json({ message: "User already exists" });
     }
 
-    // Hash the password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Insert the new user into the database
     const newUser = await pool.query(
       "INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4) RETURNING *",
       [name, email, hashedPassword, role || "customer"]
@@ -40,12 +38,10 @@ exports.registerController = async (req, res) => {
     res.status(500).send("Server Error");
   }
 };
-// Login Controller
 exports.loginController = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    // Check if user exists
     const userResult = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
     if (userResult.rows.length === 0) {
       console.warn("Login attempt with invalid email:", email);
@@ -53,26 +49,22 @@ exports.loginController = async (req, res) => {
     }
 
     const foundUser = userResult.rows[0];
-    // Validate password
     const validPassword = await bcrypt.compare(password, foundUser.password);
     if (!validPassword) {
       console.warn("Login attempt with invalid password for user:", email);
       return res.status(400).json({ message: "Invalid Credentials" });
     }
 
-    // Ensure role exists
     if (!foundUser.role) {
       console.error("Role missing for user:", foundUser.id);
       return res.status(400).json({ message: "Role not found. Please contact support." });
     }
 
-    // Generate JWT token
-    const payload = { id: foundUser.id, role: foundUser.role }; // Ensure payload matches expected structure
+    const payload = { id: foundUser.id, role: foundUser.role };
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "7d" });
 
     console.log("Login successful for user:", foundUser.id, "Role:", foundUser.role);
 
-    // Return response
     return res.status(200).json({
       token,
       role: foundUser.role,
@@ -85,12 +77,10 @@ exports.loginController = async (req, res) => {
 };
 
 
-//add agents to db
 exports.addAgentController = async (req, res) => {
   const { fullName, email, mobile } = req.body;
 
   try {
-    // Insert data into the 'agents' table
     const newAgent = await pool.query(
       "INSERT INTO agents (name, email, mobile) VALUES ($1, $2, $3) RETURNING *",
       [fullName, email, mobile]
@@ -100,7 +90,6 @@ exports.addAgentController = async (req, res) => {
   } catch (error) {
     console.error(error.message);
     if (error.code === "23505") {
-      // Handle unique constraint violation for email
       res.status(400).json({ message: "Email already exists" });
     } else {
       res.status(500).json({ message: "Server error" });
@@ -114,19 +103,16 @@ exports.agentLoginController = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    // Check if agent exists
     const agent = await pool.query("SELECT * FROM agents WHERE email = $1", [email]);
     if (agent.rows.length === 0) {
       return res.status(400).json({ message: "Invalid Credentials" });
     }
 
-    // Compare passwords
     const validPassword = await bcrypt.compare(password, agent.rows[0].password);
     if (!validPassword) {
       return res.status(400).json({ message: "Invalid Credentials" });
     }
 
-    // Generate a JWT
     const payload = { id: agent.rows[0].id, role: "agent" };
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN });
 

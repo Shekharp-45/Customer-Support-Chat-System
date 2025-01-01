@@ -56,7 +56,6 @@ const AdminDashboard: React.FC = () => {
     number | null
   >(null);
 
-  // Load agents from localStorage
   useEffect(() => {
     const storedAgents = localStorage.getItem("agents");
     if (storedAgents) {
@@ -64,14 +63,14 @@ const AdminDashboard: React.FC = () => {
     }
   }, []);
 
-  // Save agents to localStorage
+ 
   useEffect(() => {
     if (agents.length > 0) {
       localStorage.setItem("agents", JSON.stringify(agents));
     }
   }, [agents]);
 
-  // Add agent to backend and update state
+ 
   const onAddAgent = async (agent: {
     fullName: string;
     email: string;
@@ -91,7 +90,6 @@ const AdminDashboard: React.FC = () => {
   
       if (response.ok) {
         alert(data.message);
-        // Update the local state with the newly added agent
         setAgents((prev) => [...prev, agent]);
       } else {
         alert(data.message);

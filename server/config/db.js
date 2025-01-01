@@ -8,5 +8,11 @@ const pool = new Pool({
   password: process.env.PGPASSWORD,
   port: process.env.PGPORT,
 });
-
+pool.query("SELECT NOW()", (err, res) => {
+  if (err) {
+    console.error("Database connection error:", err.stack);
+  } else {
+    console.log("Database connected successfully at:", res.rows[0].now);
+  }
+});
 module.exports = pool;

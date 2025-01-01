@@ -4,9 +4,8 @@ const verifyToken = require("../middlewares/authMiddleware");
 
 const router = express.Router();
 
-// Routes
-router.post("/register", registerController); // User registration
-router.post("/login", loginController);       // User login
+router.post("/register", registerController); 
+router.post("/login", loginController);       
 router.post("/admin", addAgentController);
 
 module.exports = router;

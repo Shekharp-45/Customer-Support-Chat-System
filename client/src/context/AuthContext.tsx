@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 interface User {
   id: number;
   role: string;
-  exp?: number; // Token expiry time (optional)
+  exp?: number; 
   [key: string]: any;
 }
 
@@ -66,7 +66,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     localStorage.removeItem("authToken");
     setUser(null);
-    navigate("/login"); // Redirect to login page
+    navigate("/login"); 
   };
 
   return (
