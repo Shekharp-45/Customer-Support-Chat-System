@@ -15,7 +15,7 @@ const CustomerDashboard: React.FC = () => {
 
   const supportCategories = ["Windows", "Android", "iOS"];
   const currentUser = {
-    id:"f82b7e8f-2e62-490a-904b-52a24a109b53", // Add ID for proper backend handling
+    id: "f82b7e8f-2e62-490a-904b-52a24a109b53",
     name: "Shekhar",
     role: "Customer",
     email: "sp@gmail.com",
@@ -43,120 +43,96 @@ const CustomerDashboard: React.FC = () => {
 
   useEffect(() => {
     if (selectedCategory) {
-      const room = selectedCategory;
-      const customerId = currentUser.id || "bb27cc2b-7d1f-4af4-9336-1b34c9aa1ab3"; // Default ID as fallback
-  
-      // Emit the join-room event
-      console.log(`Attempting to join room: ${room} with customerId: ${customerId}`);
-      socket.current?.emit("join-room", {
-        room: selectedCategory, 
-        user: currentUser.name, 
-        customerId: currentUser.id || "bb27cc2b-7d1f-4af4-9336-1b34c9aa1ab3"
-      });
-      
-  
-      // Log the event for debugging
-      console.log(`Joining room: ${room}`);
-      console.log("Emitting join-room with:", {
-        room: selectedCategory,
-        user: currentUser.name,
-        customerId: currentUser.id || "bb27cc2b-7d1f-4af4-9336-1b34c9aa1ab3"
-      });
-      
-
-  
-      // Listen for new messages
-      const handleReceiveMessage = ({ message, sender, timestamp }) => {
-        console.log("Message received:", { message, sender, timestamp });
-  
-        setChatHistory((prev) => ({
-          ...prev,
-          [room]: [
-            ...(prev[room] || []),
-            {
-              sender,
-              message,
-              timestamp: new Date(timestamp).toLocaleTimeString(), // Format timestamp
-              isCurrentUser: sender === currentUser.name,
-            },
-          ],
-        }));
-      };
-  
-      socket.current?.off("receive-message", handleReceiveMessage);
-      socket.current?.on("receive-message", handleReceiveMessage);
-  
-      // Listen for typing status
-      const handleTypingStatus = ({ isTyping: typingStatus }) => {
-        console.log("Typing status updated:", typingStatus);
-        setIsTyping(typingStatus);
-      };
-  
-      socket.current?.off("typing-status", handleTypingStatus);
-      socket.current?.on("typing-status", handleTypingStatus);
-  
-      // Cleanup function to remove listeners when the component unmounts or `selectedCategory` changes
-      return () => {
-        console.log(`Cleaning up listeners for room: ${room}`);
-        socket.current?.off("receive-message", handleReceiveMessage);
-        socket.current?.off("typing-status", handleTypingStatus);
-      };
+      const savedChatHistory = localStorage.getItem("chatHistory");
+      const parsedHistory = savedChatHistory
+        ? JSON.parse(savedChatHistory)
+        : {};
+      setChatHistory(parsedHistory);
     }
   }, [selectedCategory]);
-  
 
-  // Send message
   const handleSendMessage = () => {
     if (message.trim() && selectedCategory) {
+      const room = `room-${currentUser.id}`;
       const timestamp = new Date().toISOString();
-  
-      // Emit send-message event with proper room and sender details
-      socket.current?.emit("send-message", {
-        room: selectedCategory, // Should correspond to the UUID mapping
+      const newMessage = {
+        sender: currentUser.id,
         message,
-        sender: currentUser.id, // Use sender ID for backend consistency
+        timestamp,
+      };
+  
+      // Emit message via socket
+      socket.current?.emit("send-message", {
+        room,
+        ...newMessage,
       });
   
-      // Update chat history locally
-      setChatHistory((prev) => ({
-        ...prev,
-        [selectedCategory]: [
-          ...(prev[selectedCategory] || []),
-          {
-            sender: currentUser.name,
-            message,
-            timestamp: new Date(timestamp).toLocaleTimeString(),
-            isCurrentUser: true,
-          },
-        ],
-      }));
+      // Update chat history for the selected category
+      setChatHistory((prev) => {
+        const updatedHistory = {
+          ...prev,
+          [selectedCategory]: [
+            ...(prev[selectedCategory] || []),
+            { ...newMessage, isCurrentUser: true },
+          ],
+        };
+        localStorage.setItem("chatHistory", JSON.stringify(updatedHistory));
+        return updatedHistory;
+      });
   
-      setMessage(""); // Clear input field
+      // Clear the input field
+      setMessage("");
     } else {
       console.log("Message is empty or no category selected");
     }
   };
   
+  const debounce = (func: (...args: any[]) => void, delay: number) => {
+    let timeoutId: NodeJS.Timeout;
+    return (...args: any[]) => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => func(...args), delay);
+    };
+  };
+  const joinRoom = (category: string) => {
+    if (!category) {
+      console.error("Category must be selected to join a room.");
+      return;
+    }
 
-  // Handle typing status
-  const handleTyping = () => {
-    if (selectedCategory && !typingTimeoutRef.current) {
-      const payload = { room: selectedCategory, user: currentUser.name, isTyping: true };
-      console.log("Sending typing event:", payload);
+    setSelectedCategory(category);
 
-      socket.current?.emit("typing", payload);
-  
-      // Stop typing after 1 second of inactivity
+    // Assume room is generated as `room-{category}-{customer_id}`
+    const room = `room-${currentUser.id}`;
+
+    // Emit the join-room event
+    socket.current?.emit("join-room", {
+      room,
+      user: currentUser.name,
+      customerId: currentUser.id,
+    });
+    console.log(`Customer joining room: ${room}`);
+  };
+
+  const handleTyping = debounce(() => {
+    if (selectedCategory) {
+      const room = `room-customer-${currentUser.id}`;
+      socket.current?.emit("typing", {
+        room,
+        user: currentUser.name,
+        isTyping: true,
+      });
+
+      clearTimeout(typingTimeoutRef.current as NodeJS.Timeout);
       typingTimeoutRef.current = setTimeout(() => {
-        const stopTypingPayload = { room: selectedCategory, user: currentUser.name, isTyping: false };
-        console.log("Stopping typing event:", stopTypingPayload);
-  
-        socket.current?.emit("typing", stopTypingPayload);
-        typingTimeoutRef.current = null;
+        socket.current?.emit("typing", {
+          room,
+          user: currentUser.name,
+          isTyping: false,
+        });
       }, 1000);
     }
-  };
-  
+  }, 300); // Adjust debounce time as needed
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
@@ -215,7 +191,8 @@ const CustomerDashboard: React.FC = () => {
             <div>
               <h2 className="text-2xl font-bold mb-4">My Profile</h2>
               <p className="text-gray-600">
-                Welcome to your profile! Here you can update your personal information.
+                Welcome to your profile! Here you can update your personal
+                information.
               </p>
             </div>
           )}
@@ -229,7 +206,10 @@ const CustomerDashboard: React.FC = () => {
                   {supportCategories.map((category) => (
                     <button
                       key={category}
-                      onClick={() => setSelectedCategory(category)}
+                      onClick={() => {
+                        setSelectedCategory(category); // Update selected category
+                        joinRoom(category); // Call joinRoom with the selected category
+                      }}
                       className={`px-4 py-2 rounded ${
                         selectedCategory === category
                           ? "bg-gray-300 text-black"
@@ -248,36 +228,45 @@ const CustomerDashboard: React.FC = () => {
                     Chat with {selectedCategory} Agent
                   </h3>
                   <div className="flex-1 p-2 border overflow-y-auto bg-gray-50">
-                    {chatHistory[selectedCategory]?.length ? (
-                      chatHistory[selectedCategory].map((chat, index) => (
-                        <p
-                          key={index}
-                          className={`${
-                            chat.isCurrentUser
-                              ? "text-blue-600 text-right"
-                              : "text-gray-800 text-left"
-                          }`}
-                        >
-                          {chat.sender}: {chat.message}{" "}
-                          <span className="text-xs text-gray-500">
-                            {chat.timestamp}
-                          </span>
-                        </p>
-                      ))
-                    ) : (
-                      <p className="text-gray-400">Chat history will appear here...</p>
-                    )}
+                  {selectedCategory && chatHistory[selectedCategory]?.length > 0 ? (
+  chatHistory[selectedCategory].map((chat, index) => (
+    <div
+      key={index}
+      className={`${
+        chat.isCurrentUser
+          ? "text-blue-600 text-right"
+          : "text-gray-800 text-left"
+      }`}
+    >
+      <p>{chat.message}</p>
+      <span className="text-xs text-gray-500">
+        {new Date(chat.timestamp).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        })}
+      </span>
+    </div>
+  ))
+) : (
+  <p className="text-gray-400">No chat history available...</p>
+)}
+
                   </div>
-                  {isTyping && <p className="text-sm text-gray-500">Agent is typing...</p>}
+
+                  {isTyping && (
+                    <p className="text-sm text-gray-500">Agent is typing...</p>
+                  )}
                   <div className="flex items-center mt-4">
                     <input
                       type="text"
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
-                      onKeyPress={handleTyping}
+                      onKeyDown={handleTyping} // Use onKeyDown instead of onKeyPress
                       placeholder="Type a message..."
                       className="flex-1 p-2 border rounded shadow-sm focus:ring-blue-500 focus:border-blue-500"
                     />
+
                     <button
                       onClick={handleSendMessage}
                       className="ml-2 px-4 py-2 bg-blue-500 text-white rounded shadow hover:bg-blue-600"
@@ -287,7 +276,9 @@ const CustomerDashboard: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                <p className="text-gray-400">Please select a category to chat with an agent.</p>
+                <p className="text-gray-400">
+                  Please select a category to chat with an agent.
+                </p>
               )}
             </div>
           )}

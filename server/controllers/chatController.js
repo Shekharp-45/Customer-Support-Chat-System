@@ -157,4 +157,90 @@ const addMessage = async (req, res, next) => {
 };
 
 
-module.exports = { getMessages, addMessage, createChatSession, getChatMessages, sendMessage, getChatByCategory };
+
+const getSessionMessages = async (req, res) => {
+  const sessionId = req.params.sessionId;
+
+  if (!sessionId) {
+    console.error("[ERROR] Session ID is missing in the request.");
+    return res.status(400).send({ error: "Session ID is required." });
+  }
+
+  // Extract UUID part from sessionId (assuming format PREFIX-UUID)
+  const sessionIdParts = sessionId.split("-");
+  const uuidPart = sessionIdParts.slice(-5).join("-"); // Get last 5 parts of UUID
+
+  try {
+    console.log(`[GET] Fetching messages for sessionId (UUID part): ${uuidPart}`);
+
+    const { rows } = await pool.query(
+      "SELECT * FROM messages WHERE chat_session_id = $1 ORDER BY created_at ASC",
+      [uuidPart]
+    );
+
+    if (rows.length === 0) {
+      console.log(`[INFO] No messages found for sessionId: ${uuidPart}`);
+      return res.status(404).send({ error: "No messages found for this session." });
+    }
+
+    res.status(200).send({
+      status: "success",
+      data: rows,
+    });
+  } catch (err) {
+    console.error("[ERROR] Database error:", err);
+    res.status(500).send({ error: "Failed to fetch messages for the session." });
+  }
+};
+
+const getChatHistoryBySession = async (req, res) => {
+  const { sessionId } = req.params;
+
+  if (!sessionId) {
+    console.error("[ERROR] Session ID is missing.");
+    return res.status(400).send({ error: "Session ID is required." });
+  }
+
+  try {
+    console.log(`[GET] Searching for sessionId like: ${sessionId}`);
+
+    // Find matching session
+    const sessionQuery = await pool.query(
+      "SELECT id FROM chat_sessions WHERE id::TEXT LIKE $1",
+      [`%${sessionId}%`]
+    );
+
+    if (sessionQuery.rows.length === 0) {
+      console.log(`[INFO] No session found matching: ${sessionId}`);
+      return res.status(404).send({ error: "Session not found." });
+    }
+
+    const matchedSessionId = sessionQuery.rows[0].id;
+
+    // Fetch messages for the matched session
+    const chatQuery = await pool.query(
+      "SELECT sender_id, message, created_at FROM messages WHERE chat_session_id = $1 ORDER BY created_at ASC",
+      [matchedSessionId]
+    );
+
+    if (chatQuery.rows.length === 0) {
+      console.log(`[INFO] No messages found for sessionId: ${matchedSessionId}`);
+      return res.status(404).send({ error: "No messages found for this session." });
+    }
+
+    res.status(200).send({
+      status: "success",
+      data: chatQuery.rows,
+    });
+  } catch (err) {
+    console.error("[ERROR] Error fetching chat history:", err);
+    res.status(500).send({ error: "Failed to fetch chat history." });
+  }
+};
+
+
+
+
+
+
+module.exports = { getMessages,getChatHistoryBySession, addMessage, createChatSession,getSessionMessages, getChatMessages, sendMessage, getChatByCategory };
