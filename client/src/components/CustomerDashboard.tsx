@@ -14,6 +14,7 @@ const CustomerDashboard: React.FC = () => {
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const supportCategories = ["Windows", "Android", "iOS"];
+
   const currentUser = {
     id: "f82b7e8f-2e62-490a-904b-52a24a109b53",
     name: "Shekhar",
@@ -41,25 +42,35 @@ const CustomerDashboard: React.FC = () => {
     };
   }, []);
   useEffect(() => {
+    console.log(currentUser);
     if (!socket.current) return;
-  
-    socket.current.on("receive-message", ({ message, sender, timestamp, room }) => {
-      console.log("Message received:", { message, sender, timestamp, room });
-  
-      const isCurrentUser = sender === currentUser.id;
-  
-      setChatHistory((prev) => ({
-        ...prev,
-        [room]: [...(prev[room] || []), { sender, message, timestamp, isCurrentUser }],
-      }));
-    });
-  
+
+    socket.current.on(
+      "receive-message",
+      ({ message, sender, timestamp, room }) => {
+        console.log("Message received:", { message, sender, timestamp, room });
+
+        const isCurrentUser = sender === currentUser.id;
+
+        setChatHistory((prev) => {
+          const updatedHistory = {
+            ...prev,
+            [selectedCategory || room]: [
+              ...(prev[selectedCategory || room] || []),
+              { sender, message, timestamp, isCurrentUser },
+            ],
+          };
+          console.log("Updated chatHistory:", updatedHistory);
+          return updatedHistory;
+        });
+      }
+    );
+
     return () => {
       socket.current?.off("receive-message");
     };
-  }, []);
-  
-  
+  }, [selectedCategory]);
+
   useEffect(() => {
     if (selectedCategory) {
       const savedChatHistory = localStorage.getItem("chatHistory");
@@ -69,6 +80,9 @@ const CustomerDashboard: React.FC = () => {
       setChatHistory(parsedHistory);
     }
   }, [selectedCategory]);
+  useEffect(() => {
+    console.log("Chat history updated (useEffect):", chatHistory);
+  }, [chatHistory]);
 
   const handleSendMessage = () => {
     if (message.trim() && selectedCategory) {
@@ -78,36 +92,29 @@ const CustomerDashboard: React.FC = () => {
         sender: currentUser.id,
         message,
         timestamp,
-        isCurrentUser: true, // Mark as current user's message
+        isCurrentUser: true,
       };
-  
-      // Emit message via socket
+
       socket.current?.emit("send-message", {
         room,
         ...newMessage,
       });
-  
-      // Update chat history for the selected category
+
       setChatHistory((prev) => {
         const updatedHistory = {
           ...prev,
-          [selectedCategory]: [
-            ...(prev[selectedCategory] || []),
-            newMessage,
-          ],
+          [selectedCategory]: [...(prev[selectedCategory] || []), newMessage],
         };
         localStorage.setItem("chatHistory", JSON.stringify(updatedHistory));
         return updatedHistory;
       });
-  
-      // Clear the input field
+
       setMessage("");
     } else {
       console.log("Message is empty or no category selected");
     }
   };
-  
-  
+
   const debounce = (func: (...args: any[]) => void, delay: number) => {
     let timeoutId: ReturnType<typeof setTimeout>;
     return (...args: any[]) => {
@@ -115,7 +122,7 @@ const CustomerDashboard: React.FC = () => {
       timeoutId = setTimeout(() => func(...args), delay);
     };
   };
-  
+
   const joinRoom = (category: string) => {
     if (!category) {
       console.error("Category must be selected to join a room.");
@@ -127,13 +134,12 @@ const CustomerDashboard: React.FC = () => {
     const room = `room-${currentUser.id}`;
 
     console.log(`Customer joining room: ${room}`);
-    // Emit the join-room event
     socket.current?.emit("join-room", {
       room,
       user: currentUser.name,
       customerId: currentUser.id,
+      category: category,
     });
-   
   };
 
   const handleTyping = debounce(() => {
@@ -146,14 +152,11 @@ const CustomerDashboard: React.FC = () => {
       });
     }
   }, 300);
-  
-
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
+    <div className="min-h-screen bg-gray-50 flex flex-col ">
       <NavbarList />
 
-      {/* Sidebar Toggle */}
       <button
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
         className="lg:hidden p-4 bg-gray-200 text-black border-b border-gray-300"
@@ -162,7 +165,6 @@ const CustomerDashboard: React.FC = () => {
       </button>
 
       <div className="flex flex-1">
-        {/* Sidebar */}
         <div
           className={`${
             isSidebarOpen ? "block" : "hidden"
@@ -199,8 +201,6 @@ const CustomerDashboard: React.FC = () => {
             ))}
           </div>
         </div>
-
-        {/* Main Content */}
         <div className="flex-1 p-4 lg:ml-1/5">
           {selectedOption === "Profile" && (
             <div>
@@ -211,7 +211,6 @@ const CustomerDashboard: React.FC = () => {
               </p>
             </div>
           )}
-
           {selectedOption === "Support" && (
             <div className="flex flex-col h-full">
               <h2 className="text-2xl font-bold mb-4">Support</h2>
@@ -222,8 +221,8 @@ const CustomerDashboard: React.FC = () => {
                     <button
                       key={category}
                       onClick={() => {
-                        setSelectedCategory(category); // Update selected category
-                        joinRoom(category); // Call joinRoom with the selected category
+                        setSelectedCategory(category);
+                        joinRoom(category);
                       }}
                       className={`px-4 py-2 rounded ${
                         selectedCategory === category
@@ -242,33 +241,43 @@ const CustomerDashboard: React.FC = () => {
                   <h3 className="text-xl font-bold mb-4">
                     Chat with {selectedCategory} Agent
                   </h3>
-                  <div className="flex-1 p-2 border overflow-y-auto bg-gray-50" style={{ maxHeight: "400px" }}>
-  {selectedCategory && chatHistory[selectedCategory]?.length > 0 ? (
-    chatHistory[selectedCategory].map((chat, index) => (
-      <div
-        key={index}
-        className={`${
-          chat.isCurrentUser
-            ? "text-blue-600 text-right" // Customer's message
-            : "text-gray-800 text-left"  // Agent's message
-        }`}
-      >
-        <p>{chat.message}</p>
-        <span className="text-xs text-gray-500">
-          {new Date(chat.timestamp).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: true,
-          })}
-        </span>
-      </div>
-    ))
-  ) : (
-    <p className="text-gray-400">No chat history available...</p>
-  )}
-</div>
-
-
+                  <div
+                    className="flex-1 p-2 border overflow-y-auto bg-gray-50"
+                    style={{ maxHeight: "400px" }}
+                  >
+                    {selectedCategory &&
+                    chatHistory[selectedCategory]?.length > 0 ? (
+                      chatHistory[selectedCategory].map((chat, index) => (
+                        <div
+                          key={index}
+                          className={`flex mb-2 ${
+                            chat.isCurrentUser ? "justify-end" : "justify-start"
+                          }`}
+                        >
+                          <div
+                            className={`max-w-xs px-4 py-2 rounded-lg border shadow-md ${
+                              chat.isCurrentUser
+                                ? "bg-blue-100 text-blue-600 text-right"
+                                : "bg-gray-100 text-gray-800 text-left"
+                            }`}
+                          >
+                            <p>{chat.message}</p>
+                            <span className="text-xs text-gray-500">
+                              {new Date(chat.timestamp).toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                hour12: true,
+                              })}
+                            </span>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-gray-400">
+                        No chat history available...
+                      </p>
+                    )}
+                  </div>
 
                   {isTyping && (
                     <p className="text-sm text-gray-500">Agent is typing...</p>
@@ -278,7 +287,7 @@ const CustomerDashboard: React.FC = () => {
                       type="text"
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
-                      onKeyDown={handleTyping} // Use onKeyDown instead of onKeyPress
+                      onKeyDown={handleTyping}
                       placeholder="Type a message..."
                       className="flex-1 p-2 border rounded shadow-sm focus:ring-blue-500 focus:border-blue-500"
                     />

@@ -8,18 +8,21 @@ const AgentDashboard: React.FC = () => {
   const [selectedIssue, setSelectedIssue] = useState<string>("");
   const [message, setMessage] = useState<string>("");
   const [activeRoom, setActiveRoom] = useState<string | null>(null);
-  const [mappedRoom, setMappedRoom] = useState<string | null>(null); 
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [mappedRoom, setMappedRoom] = useState<string | null>(null);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(
+    null
+  );
   const [typingStatus, setTypingStatus] = useState<string | null>(null);
-   const [chatHistory, setChatHistory] = useState<Record<string, any[]>>({});
+  const [chatHistory, setChatHistory] = useState<Record<string, any[]>>({});
   const [activeCustomers, setActiveCustomers] = useState<
     { name: string; issue: string }[]
   >([]);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const socket = useRef<Socket<DefaultEventsMap, DefaultEventsMap> | null>(null);
+  const socket = useRef<Socket<DefaultEventsMap, DefaultEventsMap> | null>(
+    null
+  );
 
-  // Assuming you have a `currentAgent` state storing the agent's details
   const currentAgent = {
     id: "79f82015-d9a2-4b3b-a34c-9c60601604ed",
     name: "SM",
@@ -27,7 +30,6 @@ const AgentDashboard: React.FC = () => {
     email: "sm@gmail.com",
   };
 
-  // Connect to Socket.IO on component mount
   useEffect(() => {
     if (!socket.current) {
       socket.current = io("http://localhost:5000");
@@ -40,7 +42,6 @@ const AgentDashboard: React.FC = () => {
         console.log("Agent disconnected");
       });
 
-      // Receive active customers list
       socket.current.on(
         "active-customers",
         (customers: { name: string; issue: string }[]) => {
@@ -62,54 +63,71 @@ const AgentDashboard: React.FC = () => {
         setChatHistory((prev) => {
           const updatedHistory = {
             ...prev,
-            [selectedIssue || '']: [...(prev[selectedIssue || ''] || []), message],
+            [selectedIssue || ""]: [
+              ...(prev[selectedIssue || ""] || []),
+              message,
+            ],
           };
           return updatedHistory;
         });
       });
-  
+
       socket.current.on("typing", ({ user, isTyping }) => {
         console.log(`${user} is typing...`);
         setTypingStatus(isTyping);
       });
     }
-  
-    // Cleanup listeners on component unmount
+
     return () => {
       socket.current?.off("message");
       socket.current?.off("typing");
     };
   }, [selectedIssue]);
-  
-  
+
   useEffect(() => {
     if (!socket.current) return;
-  
-    console.log("Socket instance:", socket.current);
-    console.log("Setting up receive-message listener");
-  
-    socket.current.on("receive-message", ({ message, sender, timestamp, room }) => {
-      console.log("Received message:", { message, sender, room });
-      setChatHistory((prev) => ({
-        ...prev,
-        [room]: [...(prev[room] || []), { sender, message, timestamp }],
-      }));
 
-    });
-    
-    
-  
+    socket.current.on(
+      "receive-message",
+      ({ message, sender, timestamp, room }) => {
+        console.log("Message received:", { message, sender, timestamp, room });
+
+        const isCurrentUser = sender === currentAgent.id;
+
+        setChatHistory((prev) => {
+          const updatedHistory = {
+            ...prev,
+            [activeRoom || room]: [
+              ...(prev[activeRoom || room] || []),
+              { sender, message, timestamp, isCurrentUser },
+            ],
+          };
+          console.log("Updated chatHistory:", updatedHistory);
+          return updatedHistory;
+        });
+      }
+    );
+
     return () => {
-      console.log("Removing receive-message listener");
       socket.current?.off("receive-message");
     };
+  }, [activeRoom, currentAgent.id]);
+
+  useEffect(() => {
+    const storedHistory = localStorage.getItem("chatHistory");
+    const storedCustomers = localStorage.getItem("activeCustomers");
+
+    if (storedHistory) {
+      setChatHistory(JSON.parse(storedHistory));
+    }
+    if (storedCustomers) {
+      setActiveCustomers(JSON.parse(storedCustomers));
+    }
   }, []);
-  
+
   useEffect(() => {
     console.log("Chat history updated (useEffect):", chatHistory);
   }, [chatHistory]);
-  
-  
 
   useEffect(() => {
     const storedHistory = localStorage.getItem("chatHistory");
@@ -117,6 +135,13 @@ const AgentDashboard: React.FC = () => {
       setChatHistory(JSON.parse(storedHistory));
     }
   }, []);
+  useEffect(() => {
+    localStorage.setItem("chatHistory", JSON.stringify(chatHistory));
+  }, [chatHistory]);
+  useEffect(() => {
+    localStorage.setItem("activeCustomers", JSON.stringify(activeCustomers));
+  }, [activeCustomers]);
+
   useEffect(() => {
     if (socket.current) {
       socket.current.on("typing-status", ({ user, isTyping }) => {
@@ -129,13 +154,10 @@ const AgentDashboard: React.FC = () => {
     }
 
     return () => {
-      // Cleanup listener on component unmount
       socket.current?.off("typing-status");
     };
   }, []);
-  
 
-  // Join a room and fetch its history
   const joinRoom = (customer: {
     name: string;
     issue: string;
@@ -144,77 +166,72 @@ const AgentDashboard: React.FC = () => {
     setSelectedCustomer(customer.name);
     setSelectedIssue(customer.issue);
     setSelectedCustomerId(customer.customerId);
-    // Assume room is generated as `room-{issue}-{customer_name}`
+
     const room = `room-${customer.customerId}`;
 
-    // Emit join-room event with customerId
+    setActiveRoom(room);
     socket.current?.emit("join-room", {
       room,
-      user: "Agent",
       customerId: customer.customerId,
     });
     setMappedRoom(room);
-    setActiveRoom(room); 
+
     console.log(`Agent joining room: ${room}`);
     console.log("Selected Customer ID:", customer.customerId);
   };
 
-  // Send a message
   const handleSendMessage = () => {
     if (message.trim() && activeRoom) {
-      const room = `room-${currentAgent.id}`;
       const timestamp = new Date().toISOString();
       const newMessage = {
         sender: currentAgent.id,
         message,
         timestamp,
+        isCurrentUser: true,
       };
-  
+
       socket.current?.emit("send-message", {
         room: activeRoom,
         ...newMessage,
       });
-  
-      setChatHistory((prev) => ({
-        ...prev,
-        [activeRoom]: [
-          ...(prev[activeRoom] || []),
-          { ...newMessage, isCurrentUser: true },
-        ],
-      }));
-  
+
+      setChatHistory((prev) => {
+        const updatedHistory = {
+          ...prev,
+          [activeRoom]: [...(prev[activeRoom] || []), newMessage],
+        };
+        return updatedHistory;
+      });
+
       setMessage("");
     } else {
-      console.log("Message is empty or no category selected");
+      console.log("Message is empty or no active room selected");
     }
   };
-  
 
   const debounce = (func: (...args: any[]) => void, delay: number) => {
-  let timeoutId: ReturnType<typeof setTimeout>;
-  return (...args: any[]) => {
-    clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => func(...args), delay);
+    let timeoutId: ReturnType<typeof setTimeout>;
+    return (...args: any[]) => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => func(...args), delay);
+    };
   };
-};
 
-const handleTyping = debounce(() => {
-  if (activeRoom) {
-    socket.current?.emit("typing", {
-      room: activeRoom,
-      user: currentAgent.name,
-      isTyping: true,
-    });
-  }
-}, 300);
-
+  const handleTyping = debounce(() => {
+    if (activeRoom) {
+      socket.current?.emit("typing", {
+        room: activeRoom,
+        user: currentAgent.name,
+        isTyping: true,
+      });
+    }
+  }, 300);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-gray-50 flex flex-col overflow-hidden">
       <NavbarList />
-      <div className="flex flex-1 flex-col md:flex-row">
-        {/* Sidebar */}
-        <div className="md:w-1/4 bg-white shadow-md p-4">
+      <div className="flex flex-1 flex-col md:flex-row h-full overflow-hidden">
+        <div className="md:w-1/4 bg-white shadow-md p-4 flex flex-col h-full overflow-y-auto">
           <h2 className="text-lg font-bold mb-4">Active Conversations</h2>
           {activeCustomers.length > 0 ? (
             activeCustomers.map((customer) => (
@@ -239,40 +256,49 @@ const handleTyping = debounce(() => {
             <p className="text-center text-gray-500">No active conversations</p>
           )}
         </div>
-  {/* Chat Window */}
-  <div className="flex-1 flex flex-col bg-white p-4 shadow-md">
+        <div className="flex-1 flex flex-col bg-white p-6 shadow-md h-full overflow-hidden">
           {selectedCustomer ? (
             <>
-              <h3 className="text-xl font-bold mb-2">Chat with {selectedCustomer}</h3>
-              <div className="flex-1 p-2 border overflow-y-auto bg-gray-50" style={{ maxHeight: "400px" }}>
-  {chatHistory[activeRoom || ""]?.map((chat, index) => (
-    <div
-      key={index}
-      className={`flex ${
-        chat.sender === currentAgent.id ? "justify-end" : "justify-start"
-      }`}
-    >
-      <div
-        className={`${
-          chat.sender === currentAgent.id
-            ? "text-blue-600"
-            : "text-gray-800"
-        } p-2 rounded max-w-xs`}
-      >
-        <p>{chat.message}</p>
-        <span className="text-xs text-gray-500">
-          {new Date(chat.timestamp).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: true,
-          })}
-        </span>
-      </div>
-    </div>
-  ))}
-</div>
-
-              <div className="flex items-center space-x-2">
+              <h3 className="text-xl font-bold mb-2">
+                Chat with {selectedCustomer}
+              </h3>
+              <div
+                className="flex-1 p-4 border bg-gray-50 rounded overflow-y-auto"
+                style={{ maxHeight: "70vh" }}
+              >
+                {activeRoom && chatHistory[activeRoom]?.length > 0 ? (
+                  chatHistory[activeRoom].map((chat, index) => (
+                    <div
+                      key={index}
+                      className={`flex mb-2 ${
+                        chat.isCurrentUser ? "justify-end" : "justify-start"
+                      }`}
+                    >
+                      <div
+                        className={`max-w-xs px-4 py-2 rounded-lg border shadow-md ${
+                          chat.isCurrentUser
+                            ? "bg-blue-100 text-blue-600 text-right"
+                            : "bg-gray-100 text-gray-800 text-left"
+                        }`}
+                      >
+                        <p>{chat.message}</p>
+                        <span className="text-xs text-gray-500">
+                          {new Date(chat.timestamp).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            hour12: true,
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-center text-gray-500">
+                    No chat history available...
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center space-x-2 mt-4">
                 <input
                   type="text"
                   value={message}
@@ -281,16 +307,20 @@ const handleTyping = debounce(() => {
                   placeholder="Type a message..."
                   className="flex-1 p-2 border rounded"
                 />
-                <button onClick={handleSendMessage} className="px-4 py-2 bg-blue-500 text-white rounded">
+                <button
+                  onClick={handleSendMessage}
+                  className="px-4 py-2 bg-blue-500 text-white rounded"
+                >
                   Send
                 </button>
               </div>
             </>
           ) : (
-            <p className="text-center text-gray-500">Select a customer to start chatting</p>
+            <p className="text-center text-gray-500">
+              Select a customer to start chatting
+            </p>
           )}
         </div>
-
       </div>
     </div>
   );
