@@ -47,9 +47,11 @@ socket.on("join-room", async ({ room, user, customerId }) => {
             console.error("Missing customer ID.");
             return socket.emit("error", { message: "Customer ID is required." });
         }
-        if (user && customerId && user !== "Agent") {
-          const category = room.split('-')[1]; // Extract only the category
-          activeCustomers.set(socket.id, { name: user, issue: category, customerId :customerId}); // Use customerId directly
+        const defaultIssue = "General Issue"; // Use default if no specific logic
+        const issue = defaultIssue; 
+        if (user && user !== "Agent") {
+          activeCustomers.set(socket.id, { name: user, issue, customerId });
+
           emitActiveCustomers();
       }
       
@@ -71,8 +73,6 @@ socket.on("join-room", async ({ room, user, customerId }) => {
             }
             room = roomMapping[room];
         }
-        console.log(`User ${socket.id} joined room: ${room}`);
-        console.log("Active rooms:", io.sockets.adapter.rooms);
         // Join the room
         if (room) {
           socket.join(room);
@@ -87,12 +87,19 @@ socket.on("join-room", async ({ room, user, customerId }) => {
 });
 
 const emitActiveCustomers = () => {
-  const customers = Array.from(activeCustomers.values());
-  io.emit("active-customers", customers);
+  const customers = Array.from(activeCustomers.values()).map((customer) => ({
+      ...customer,
+      customerId: customer.customerId, // Ensure customerId is present
+  }));
+  io.emit("active-customers", customers.filter((customer) => customer.name !== "Agent"));
 };
+
+
   
   
-socket.on("send-message", async ({ room, message, sender, timestamp }) => {
+socket.on("send-message", async ({ room, message, sender, timestamp }, callback) => {
+  console.log(`Received message for room ${room}:`, { message, sender });
+
   try {
     if (!room || !message || !sender) {
       console.error("Missing required fields:", { room, message, sender });
@@ -103,17 +110,16 @@ socket.on("send-message", async ({ room, message, sender, timestamp }) => {
     // Map room to UUID if necessary
     if (!isUUID(room)) {
       if (!roomMapping[room]) {
-        const newRoomId = generateUUID(); // Generate a new UUID
-    roomMapping[room] = newRoomId;
-    console.log(`Room "${room}" mapped to UUID "${newRoomId}"`);
-        const defaultCategoryId = 1;
+        const newRoomId = uuidv4();
+        roomMapping[room] = newRoomId;
 
-        try {     // Insert the new room into the database
+        console.log(`Room "${room}" mapped to UUID "${newRoomId}"`);
+
+        try {
           await pool.query(
             `INSERT INTO chat_sessions (id, category_id) VALUES ($1, $2)`,
-            [newRoomId, defaultCategoryId]
+            [newRoomId, 1]
           );
-          console.log(`Room "${room}" mapped to UUID "${newRoomId}" and inserted into chat_sessions.`);
         } catch (error) {
           console.error("Error inserting new room into chat_sessions:", error.message);
           socket.emit("error", { message: "Failed to create new room." });
@@ -122,6 +128,7 @@ socket.on("send-message", async ({ room, message, sender, timestamp }) => {
       }
       room = roomMapping[room];
     }
+
     // Insert the message into the database
     const insertQuery = `
       INSERT INTO messages (chat_session_id, sender_id, message, created_at)
@@ -129,19 +136,21 @@ socket.on("send-message", async ({ room, message, sender, timestamp }) => {
       RETURNING *;
     `;
     const result = await pool.query(insertQuery, [room, sender, message, timestamp]);
-    console.log("Message inserted to DB");
-    if (result.rows.length > 0 ) {
+
+    if (result.rows.length > 0) {
       const newMessage = result.rows[0];
+      const isAgent = newMessage.sender_id === "79f82015-d9a2-4b3b-a34c-9c60601604ed";
+      console.log("new mwssage ",newMessage);
+      console.log("is agent??",isAgent);
       socket.to(room).emit("receive-message", {
         message: newMessage.message,
         sender: newMessage.sender_id,
         timestamp: new Date(newMessage.created_at).toISOString(),
         room,
+        isAgent,
       });
-      socket.emit("message-sent", { status: "success", message, room });
-      console.log(`Message sent to room ${room}:`, newMessage.message);
-      console.log("Emitting to room:", room);
-      
+
+      callback && callback({ status: "success", message, room });
     } else {
       console.error("Failed to insert message.");
       socket.emit("error", { message: "Failed to send message." });
@@ -155,15 +164,19 @@ socket.on("send-message", async ({ room, message, sender, timestamp }) => {
 
 
 
-  socket.on("typing", ({ room, user, isTyping }) => {
-    if (!room || !user) {
-      console.error("Missing room or user in typing event.", { room, user });
-      return;
-    }
+socket.on("typing", ({ room, user, isTyping }) => {
+  if (!isUUID(room)) {
+    room = roomMapping[room]; // Map the room if necessary
+  }
   
-    console.log(`Typing event in room ${room} by user ${user}: ${isTyping}`);
-    socket.to(room).emit("typing-status", { user, isTyping });
-  });
+  if (room) {
+    console.log(`Typing by ${user} in room: ${room}`);
+    socket.to(room).emit("typing-status", { room, user, isTyping });
+  } else {
+    console.error("Invalid room for typing event.");
+  }
+});
+
   
 
   socket.on("disconnect", () => {

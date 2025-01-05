@@ -11,7 +11,7 @@ const CustomerDashboard: React.FC = () => {
   const [isTyping, setIsTyping] = useState<boolean>(false);
 
   const socket = useRef<Socket | null>(null);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const supportCategories = ["Windows", "Android", "iOS"];
   const currentUser = {
@@ -40,7 +40,26 @@ const CustomerDashboard: React.FC = () => {
       socket.current = null;
     };
   }, []);
-
+  useEffect(() => {
+    if (!socket.current) return;
+  
+    socket.current.on("receive-message", ({ message, sender, timestamp, room }) => {
+      console.log("Message received:", { message, sender, timestamp, room });
+  
+      const isCurrentUser = sender === currentUser.id;
+  
+      setChatHistory((prev) => ({
+        ...prev,
+        [room]: [...(prev[room] || []), { sender, message, timestamp, isCurrentUser }],
+      }));
+    });
+  
+    return () => {
+      socket.current?.off("receive-message");
+    };
+  }, []);
+  
+  
   useEffect(() => {
     if (selectedCategory) {
       const savedChatHistory = localStorage.getItem("chatHistory");
@@ -59,6 +78,7 @@ const CustomerDashboard: React.FC = () => {
         sender: currentUser.id,
         message,
         timestamp,
+        isCurrentUser: true, // Mark as current user's message
       };
   
       // Emit message via socket
@@ -73,7 +93,7 @@ const CustomerDashboard: React.FC = () => {
           ...prev,
           [selectedCategory]: [
             ...(prev[selectedCategory] || []),
-            { ...newMessage, isCurrentUser: true },
+            newMessage,
           ],
         };
         localStorage.setItem("chatHistory", JSON.stringify(updatedHistory));
@@ -87,13 +107,15 @@ const CustomerDashboard: React.FC = () => {
     }
   };
   
+  
   const debounce = (func: (...args: any[]) => void, delay: number) => {
-    let timeoutId: NodeJS.Timeout;
+    let timeoutId: ReturnType<typeof setTimeout>;
     return (...args: any[]) => {
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => func(...args), delay);
     };
   };
+  
   const joinRoom = (category: string) => {
     if (!category) {
       console.error("Category must be selected to join a room.");
@@ -102,37 +124,30 @@ const CustomerDashboard: React.FC = () => {
 
     setSelectedCategory(category);
 
-    // Assume room is generated as `room-{category}-{customer_id}`
     const room = `room-${currentUser.id}`;
 
+    console.log(`Customer joining room: ${room}`);
     // Emit the join-room event
     socket.current?.emit("join-room", {
       room,
       user: currentUser.name,
       customerId: currentUser.id,
     });
-    console.log(`Customer joining room: ${room}`);
+   
   };
 
   const handleTyping = debounce(() => {
     if (selectedCategory) {
-      const room = `room-customer-${currentUser.id}`;
+      const room = `room-${currentUser.id}`;
       socket.current?.emit("typing", {
         room,
         user: currentUser.name,
         isTyping: true,
       });
-
-      clearTimeout(typingTimeoutRef.current as NodeJS.Timeout);
-      typingTimeoutRef.current = setTimeout(() => {
-        socket.current?.emit("typing", {
-          room,
-          user: currentUser.name,
-          isTyping: false,
-        });
-      }, 1000);
     }
-  }, 300); // Adjust debounce time as needed
+  }, 300);
+  
+
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
@@ -227,32 +242,33 @@ const CustomerDashboard: React.FC = () => {
                   <h3 className="text-xl font-bold mb-4">
                     Chat with {selectedCategory} Agent
                   </h3>
-                  <div className="flex-1 p-2 border overflow-y-auto bg-gray-50">
-                  {selectedCategory && chatHistory[selectedCategory]?.length > 0 ? (
-  chatHistory[selectedCategory].map((chat, index) => (
-    <div
-      key={index}
-      className={`${
-        chat.isCurrentUser
-          ? "text-blue-600 text-right"
-          : "text-gray-800 text-left"
-      }`}
-    >
-      <p>{chat.message}</p>
-      <span className="text-xs text-gray-500">
-        {new Date(chat.timestamp).toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: true,
-        })}
-      </span>
-    </div>
-  ))
-) : (
-  <p className="text-gray-400">No chat history available...</p>
-)}
+                  <div className="flex-1 p-2 border overflow-y-auto bg-gray-50" style={{ maxHeight: "400px" }}>
+  {selectedCategory && chatHistory[selectedCategory]?.length > 0 ? (
+    chatHistory[selectedCategory].map((chat, index) => (
+      <div
+        key={index}
+        className={`${
+          chat.isCurrentUser
+            ? "text-blue-600 text-right" // Customer's message
+            : "text-gray-800 text-left"  // Agent's message
+        }`}
+      >
+        <p>{chat.message}</p>
+        <span className="text-xs text-gray-500">
+          {new Date(chat.timestamp).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true,
+          })}
+        </span>
+      </div>
+    ))
+  ) : (
+    <p className="text-gray-400">No chat history available...</p>
+  )}
+</div>
 
-                  </div>
+
 
                   {isTyping && (
                     <p className="text-sm text-gray-500">Agent is typing...</p>
