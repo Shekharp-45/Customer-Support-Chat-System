@@ -178,7 +178,7 @@ io.on("connection", (socket) => {
 
     if (room) {
       console.log(`Typing by ${user} in room: ${room}`);
-      socket.to(room).emit("typing-status", { room, user, isTyping });
+      socket.to(room).emit("userTyping", { room, user, isTyping });
     } else {
       console.error("Invalid room for typing event.");
     }

@@ -42,13 +42,6 @@ const AgentDashboard: React.FC = () => {
         console.log("Agent disconnected");
       });
 
-      socket.current.on(
-        "active-customers",
-        (customers: { name: string; issue: string }[]) => {
-          setActiveCustomers(customers);
-          console.log("Active customers received:", customers);
-        }
-      );
     }
 
     return () => {
@@ -115,13 +108,9 @@ const AgentDashboard: React.FC = () => {
 
   useEffect(() => {
     const storedHistory = localStorage.getItem("chatHistory");
-    const storedCustomers = localStorage.getItem("activeCustomers");
 
     if (storedHistory) {
       setChatHistory(JSON.parse(storedHistory));
-    }
-    if (storedCustomers) {
-      setActiveCustomers(JSON.parse(storedCustomers));
     }
   }, []);
 
@@ -135,13 +124,38 @@ const AgentDashboard: React.FC = () => {
       setChatHistory(JSON.parse(storedHistory));
     }
   }, []);
-  useEffect(() => {
-    localStorage.setItem("chatHistory", JSON.stringify(chatHistory));
-  }, [chatHistory]);
+  
   useEffect(() => {
     localStorage.setItem("activeCustomers", JSON.stringify(activeCustomers));
   }, [activeCustomers]);
-
+  useEffect(() => {
+    const storedCustomers = localStorage.getItem("activeCustomers");
+    if (storedCustomers) {
+      setActiveCustomers(JSON.parse(storedCustomers));
+    }
+  }, []);
+  useEffect(() => {
+    if (socket.current) {
+      socket.current.emit("request-active-customers");
+    }
+  }, [socket]);  
+  
+  useEffect(() => {
+    localStorage.setItem("chatHistory", JSON.stringify(chatHistory));
+  }, [chatHistory]);
+  
+  useEffect(() => {
+    if (socket.current) {
+      socket.current.on("active-customers", (customers) => {
+        setActiveCustomers(customers);
+        console.log("Active customers received:", customers);
+      });
+    }
+  
+    return () => {
+      socket.current?.off("active-customers");
+    };
+  }, []);
   useEffect(() => {
     if (socket.current) {
       socket.current.on("typing-status", ({ user, isTyping }) => {
@@ -157,7 +171,39 @@ const AgentDashboard: React.FC = () => {
       socket.current?.off("typing-status");
     };
   }, []);
-
+  const fetchChatHistory = async (roomId) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/chathistory/${roomId}`);
+      const data = await response.json();
+      setChatHistory((prev) => ({
+        ...prev,
+        [roomId]: data,
+      }));
+    } catch (error) {
+      console.error("Error fetching chat history:", error);
+    }
+  };
+  const markAsResolved = () => {
+    if (activeRoom) {
+      // Notify server that the issue is resolved
+      socket.current?.emit("mark-issue-resolved", {
+        room: activeRoom,
+        agentId: currentAgent.id,
+      });
+  
+      // Update local state (optional, based on backend handling)
+      setChatHistory((prev) => {
+        const updatedHistory = { ...prev };
+        delete updatedHistory[activeRoom]; // Remove resolved chat from active list
+        return updatedHistory;
+      });
+  
+      setActiveRoom(null);
+      setSelectedCustomer(null);
+      setSelectedIssue("");
+      console.log(`Marked issue as resolved for room: ${activeRoom}`);
+    }
+  };
   const joinRoom = (customer: {
     name: string;
     issue: string;
@@ -175,7 +221,7 @@ const AgentDashboard: React.FC = () => {
       customerId: customer.customerId,
     });
     setMappedRoom(room);
-
+    fetchChatHistory(room);
     console.log(`Agent joining room: ${room}`);
     console.log("Selected Customer ID:", customer.customerId);
   };
@@ -236,7 +282,7 @@ const AgentDashboard: React.FC = () => {
           {activeCustomers.length > 0 ? (
             activeCustomers.map((customer) => (
               <button
-                key={customer.name}
+                key={customer.issue}
                 onClick={() => joinRoom(customer)}
                 className={`block w-full text-left p-2 rounded ${
                   selectedCustomer === customer.name
@@ -246,9 +292,7 @@ const AgentDashboard: React.FC = () => {
               >
                 <div className="flex justify-between">
                   <span>{customer.name}</span>
-                  <span className="text-sm text-gray-500">
-                    {customer.issue}
-                  </span>
+                  <span className="text-sm text-gray-500">{customer.issue}</span>
                 </div>
               </button>
             ))
@@ -259,9 +303,17 @@ const AgentDashboard: React.FC = () => {
         <div className="flex-1 flex flex-col bg-white p-6 shadow-md h-full overflow-hidden">
           {selectedCustomer ? (
             <>
-              <h3 className="text-xl font-bold mb-2">
-                Chat with {selectedCustomer}
-              </h3>
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-bold mb-2">
+                  Chat with {selectedCustomer}
+                </h3>
+                <button
+                  onClick={markAsResolved}
+                  className="px-4 py-2 bg-blue-200 text-black font-bold rounded"
+                >
+                  Mark as Resolved
+                </button>
+              </div>
               <div
                 className="flex-1 p-4 border bg-gray-50 rounded overflow-y-auto"
                 style={{ maxHeight: "70vh" }}

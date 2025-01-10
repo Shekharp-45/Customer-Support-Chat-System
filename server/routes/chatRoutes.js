@@ -3,7 +3,7 @@ const {
   createChatSession,
   getChatMessages,
   sendMessage,
-  getChatByCategory,addMessage,getChatHistoryBySession, getMessages,getSessionMessages
+  getChatByCategory,addMessage,getChatHistoryByRoomId, getMessages,getSessionMessages
 } = require("../controllers/chatController");
 const pool = require("../config/db");
 const { v4: uuidv4 , validate: isUUID  } = require("uuid");
@@ -43,6 +43,7 @@ router.get("/category/:category", getChatByCategory);
 
 router.post("/addmsg/", addMessage);
 router.post("/getmsg/", getMessages);
-router.get("/history/:sessionId", getSessionMessages);
+router.get("/history/:roomId", getChatHistoryByRoomId);
+router.get("/conversations/:chatSessionId",getSessionMessages);
  
 module.exports = router;

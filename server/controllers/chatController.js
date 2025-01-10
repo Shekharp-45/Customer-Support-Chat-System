@@ -158,29 +158,25 @@ const addMessage = async (req, res, next) => {
 
 
 
-const getSessionMessages = async (req, res) => {
-  const sessionId = req.params.sessionId;
+const getChatHistoryByRoomId = async (req, res) => {
+  const roomId = req.params.roomId;
 
-  if (!sessionId) {
-    console.error("[ERROR] Session ID is missing in the request.");
-    return res.status(400).send({ error: "Session ID is required." });
+  if (!roomId) {
+    console.error("[ERROR] Room ID is missing in the request.");
+    return res.status(400).send({ error: "Room ID is required." });
   }
 
-  // Extract UUID part from sessionId (assuming format PREFIX-UUID)
-  const sessionIdParts = sessionId.split("-");
-  const uuidPart = sessionIdParts.slice(-5).join("-"); // Get last 5 parts of UUID
-
   try {
-    console.log(`[GET] Fetching messages for sessionId (UUID part): ${uuidPart}`);
+    console.log(`[GET] Fetching messages for roomId: ${roomId}`);
 
     const { rows } = await pool.query(
       "SELECT * FROM messages WHERE chat_session_id = $1 ORDER BY created_at ASC",
-      [uuidPart]
+      [roomId]
     );
 
     if (rows.length === 0) {
-      console.log(`[INFO] No messages found for sessionId: ${uuidPart}`);
-      return res.status(404).send({ error: "No messages found for this session." });
+      console.log(`[INFO] No messages found for roomId: ${roomId}`);
+      return res.status(404).send({ error: "No messages found for this room." });
     }
 
     res.status(200).send({
@@ -189,9 +185,10 @@ const getSessionMessages = async (req, res) => {
     });
   } catch (err) {
     console.error("[ERROR] Database error:", err);
-    res.status(500).send({ error: "Failed to fetch messages for the session." });
+    res.status(500).send({ error: "Failed to fetch messages for the room." });
   }
 };
+
 
 const getChatHistoryBySession = async (req, res) => {
   const { sessionId } = req.params;
@@ -237,10 +234,29 @@ const getChatHistoryBySession = async (req, res) => {
     res.status(500).send({ error: "Failed to fetch chat history." });
   }
 };
+const getSessionMessages=async (req, res) => {
+  const chatSessionId = req.params.chatSessionId;
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT sender_id, chat_session_id, message, created_at
+      FROM messages
+      WHERE chat_session_id = $1
+      ORDER BY created_at ASC;
+      `,
+      [chatSessionId]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error fetching messages');
+  }
+};
 
 
 
 
 
-
-module.exports = { getMessages,getChatHistoryBySession, addMessage, createChatSession,getSessionMessages, getChatMessages, sendMessage, getChatByCategory };
+module.exports = { getMessages,getSessionMessages,getChatHistoryByRoomId, addMessage, createChatSession, getChatMessages, sendMessage, getChatByCategory };
