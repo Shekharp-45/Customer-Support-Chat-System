@@ -2,15 +2,16 @@ import React, { useState, useEffect } from "react";
 import NavbarList from "../components/Navbar.tsx";
 import AddAgentForm from "../components/AddAgentForm.tsx";
 import DisplayAgents from "../components/DisplayAgents.tsx";
-import ChatConversation from "../components/ChatConversation.tsx"
+import ChatConversation from "../components/ChatConversation.tsx";
 
 const AdminDashboard: React.FC = () => {
-  const [agents, setAgents] = useState<
-    { fullName: string; email: string; mobile: string }[]
-  >([]);
+  const [agents, setAgents] = useState<{ fullName: string; email: string; mobile: string }[]>([]);
   const [selectedView, setSelectedView] = useState<string>("Add Agents");
+  const [chatSessions, setChatSessions] = useState<string[]>([]);
+  const [selectedChatSessionId, setSelectedChatSessionId] = useState<string | null>(null);
 
   useEffect(() => {
+    // Load agents from localStorage
     const storedAgents = localStorage.getItem("agents");
     if (storedAgents) {
       setAgents(JSON.parse(storedAgents));
@@ -18,17 +19,31 @@ const AdminDashboard: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (agents.length > 0) {
-      localStorage.setItem("agents", JSON.stringify(agents));
-    }
+    // Save agents to localStorage
+    localStorage.setItem("agents", JSON.stringify(agents));
   }, [agents]);
 
+  useEffect(() => {
+    const fetchChatSessions = async () => {
+      try {
+        const response = await fetch("http://localhost:5000/api/chats/conversations");
+        if (!response.ok) {
+          throw new Error("Failed to fetch chat sessions");
+        }
+        const result = await response.json();
+        console.log("Fetched chat sessions:", result.data); // Access the 'data' property
+        setChatSessions(result.data); // Set chatSessions with the actual data array
+      } catch (error) {
+        console.error("Error fetching chat sessions:", error);
+      }
+    };
+  
+    fetchChatSessions();
+  }, []);
+  
+  
 
-  const onAddAgent = async (agent: {
-    fullName: string;
-    email: string;
-    mobile: string;
-  }) => {
+  const onAddAgent = async (agent: { fullName: string; email: string; mobile: string }) => {
     try {
       const response = await fetch("http://localhost:5000/api/auth/admin", {
         method: "POST",
@@ -55,6 +70,10 @@ const AdminDashboard: React.FC = () => {
   const handleDeleteAgent = (agentIndex: number) => {
     const updatedAgents = agents.filter((_, index) => index !== agentIndex);
     setAgents(updatedAgents);
+  };
+
+  const handleSelectChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedChatSessionId(event.target.value);
   };
 
   return (
@@ -89,25 +108,41 @@ const AdminDashboard: React.FC = () => {
           {selectedView === "Add Agents" && (
             <div>
               <AddAgentForm onAddAgent={onAddAgent} />
-              <DisplayAgents
-                agents={agents}
-                onDeleteAgent={handleDeleteAgent}
-              />
+              <DisplayAgents agents={agents} onDeleteAgent={handleDeleteAgent} />
             </div>
           )}
 
           {selectedView === "See Conversations" && (
             <div>
               <h2 className="text-2xl font-bold mb-4">Conversations</h2>
-              <div className="mb-4">
-                <label
-                  htmlFor="conversationSelector"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Select a Conversation:
-                </label>
-              </div>
-              <ChatConversation chatSessionId="5a384f8a-3be4-4d0e-9c11-8d85ed7630a7" />
+              {Array.isArray(chatSessions) && chatSessions.length > 0 ? (
+                <div className="mb-4">
+                  <label
+                    htmlFor="conversationSelector"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Select a Conversation:
+                  </label>
+                  <select
+                    id="conversationSelector"
+                    className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm"
+                    onChange={handleSelectChange}
+                    value={selectedChatSessionId || ""}
+                  >
+                    <option value="" disabled>
+                      Select a conversation
+                    </option>
+                    {chatSessions.map((sessionId) => (
+                      <option key={sessionId} value={sessionId}>
+                        {sessionId}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <p className="text-gray-500">No conversations available.</p>
+              )}
+              {selectedChatSessionId && <ChatConversation chatSessionId={selectedChatSessionId} />}
             </div>
           )}
         </div>

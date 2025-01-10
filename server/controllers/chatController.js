@@ -255,8 +255,25 @@ const getSessionMessages=async (req, res) => {
   }
 };
 
+const getConversations = async (req, res) => {
+  try {
+    // Use a raw query to fetch distinct chat_session_ids
+    const result = await pool.query(`
+      SELECT DISTINCT chat_session_id
+      FROM messages
+    `);
+
+    // Extract session IDs from the result
+    const sessionIds = result.rows.map(row => row.chat_session_id);
+
+    // Send the response
+    res.status(200).json({ status: 'success', data: sessionIds });
+  } catch (error) {
+    console.error('Error fetching conversations:', error);
+    res.status(500).json({ message: 'Failed to fetch chat conversations' });
+  }
+};
 
 
 
-
-module.exports = { getMessages,getSessionMessages,getChatHistoryByRoomId, addMessage, createChatSession, getChatMessages, sendMessage, getChatByCategory };
+module.exports = { getMessages,getConversations,getSessionMessages,getChatHistoryByRoomId, addMessage, createChatSession, getChatMessages, sendMessage, getChatByCategory };

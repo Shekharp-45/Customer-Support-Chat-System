@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+
 interface Message {
   sender_id: string;
   chat_session_id: string;
@@ -8,21 +9,30 @@ interface Message {
 
 interface ChatConversationProps {
   chatSessionId: string;
+  onChatSessionSelected?: (chatSessionId: string) => void;
 }
 
-const ChatConversation: React.FC<ChatConversationProps> = ({ chatSessionId }) => {
+const ChatConversation: React.FC<ChatConversationProps> = ({
+  chatSessionId,
+  onChatSessionSelected,
+}) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     const fetchMessages = async () => {
       try {
-        const response = await fetch(`http://localhost:5000/api/chats/conversations/${chatSessionId}`);
+        const response = await fetch(
+          `http://localhost:5000/api/chats/conversations/${chatSessionId}`
+        );
         if (!response.ok) {
           throw new Error("Failed to fetch messages");
         }
         const data: Message[] = await response.json();
         setMessages(data);
+        if (onChatSessionSelected) {
+          onChatSessionSelected(chatSessionId);
+        }
       } catch (error) {
         console.error("Error fetching messages:", error);
       } finally {
@@ -31,7 +41,7 @@ const ChatConversation: React.FC<ChatConversationProps> = ({ chatSessionId }) =>
     };
 
     fetchMessages();
-  }, [chatSessionId]);
+  }, [chatSessionId, onChatSessionSelected]);
 
   if (loading) {
     return <p className="text-center text-gray-500">Loading...</p>;
@@ -43,7 +53,9 @@ const ChatConversation: React.FC<ChatConversationProps> = ({ chatSessionId }) =>
         <div
           key={index}
           className={`flex ${
-            message.sender_id === "79f82015-d9a2-4b3b-a34c-9c60601604ed" ? "justify-start" : "justify-end"
+            message.sender_id === "79f82015-d9a2-4b3b-a34c-9c60601604ed"
+              ? "justify-start"
+              : "justify-end"
           } mb-4`}
         >
           <div
