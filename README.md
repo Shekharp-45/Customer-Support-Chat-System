@@ -47,6 +47,8 @@ Before running the project, make sure you have the following installed on your s
    - For the frontend, you may have variables such as API URLs, keys, etc.
 
 ## Running the Project
+![Screenshot (257)](https://github.com/user-attachments/assets/3f2a1a4b-74f1-4366-a30e-376e2e9929b5)
+
 
 To run both the frontend and backend simultaneously, the `concurrently` npm package is used.
 
