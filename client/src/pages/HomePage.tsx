@@ -45,7 +45,7 @@ const HomePage: React.FC = () => {
         }}
       >
         <p className="text-sm md:text-base">
-          &copy; 2024 Customer Support Chat System. All Rights Reserved.
+          &copy; 2025 Customer Support Chat System. All Rights Reserved.
         </p>
       </footer>
     </div>
