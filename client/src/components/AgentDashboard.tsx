@@ -64,19 +64,20 @@ const AgentDashboard: React.FC = () => {
           return updatedHistory;
         });
       });
-
-      socket.current.on("typing", ({ user, isTyping }) => {
-        console.log(`${user} is typing...`);
-        setTypingStatus(isTyping);
-      });
     }
 
     return () => {
       socket.current?.off("message");
-      socket.current?.off("typing");
     };
   }, [selectedIssue]);
-
+  
+  useEffect(() => {
+    if (typingStatus) {
+      const timeout = setTimeout(() => setTypingStatus(""), 3000);
+      return () => clearTimeout(timeout);
+    }
+  }, [typingStatus]);
+  
   useEffect(() => {
     if (!socket.current) return;
 
@@ -95,7 +96,7 @@ const AgentDashboard: React.FC = () => {
               { sender, message, timestamp, isCurrentUser },
             ],
           };
-          console.log("Updated chatHistory:", updatedHistory);
+         //console.log("Updated chatHistory:", updatedHistory);
           return updatedHistory;
         });
       }
@@ -105,7 +106,7 @@ const AgentDashboard: React.FC = () => {
       socket.current?.off("receive-message");
     };
   }, [activeRoom, currentAgent.id]);
-
+  
   useEffect(() => {
     const storedHistory = localStorage.getItem("chatHistory");
 
@@ -115,7 +116,7 @@ const AgentDashboard: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    console.log("Chat history updated (useEffect):", chatHistory);
+    //console.log("Chat history updated (useEffect):", chatHistory);
   }, [chatHistory]);
 
   useEffect(() => {
@@ -133,12 +134,7 @@ const AgentDashboard: React.FC = () => {
     if (storedCustomers) {
       setActiveCustomers(JSON.parse(storedCustomers));
     }
-  }, []);
-  useEffect(() => {
-    if (socket.current) {
-      socket.current.emit("request-active-customers");
-    }
-  }, [socket]);  
+  }, []); 
   
   useEffect(() => {
     localStorage.setItem("chatHistory", JSON.stringify(chatHistory));
@@ -148,7 +144,8 @@ const AgentDashboard: React.FC = () => {
     if (socket.current) {
       socket.current.on("active-customers", (customers) => {
         setActiveCustomers(customers);
-        console.log("Active customers received:", customers);
+        localStorage.setItem("activeCustomers", JSON.stringify(customers));
+        //console.log("Active customers received:", customers);
       });
     }
   
@@ -158,19 +155,34 @@ const AgentDashboard: React.FC = () => {
   }, []);
   useEffect(() => {
     if (socket.current) {
-      socket.current.on("typing-status", ({ user, isTyping }) => {
-        if (isTyping) {
-          setTypingStatus(`${user} is typing...`);
-        } else {
-          setTypingStatus(null);
-        }
-      });
+      socket.current.emit("request-active-customers");
     }
-
-    return () => {
-      socket.current?.off("typing-status");
-    };
-  }, []);
+  }, [socket]); 
+  
+   useEffect(() => {
+      if (socket.current) {
+        socket.current.on("userTyping", ({ room, user, isTyping }) => {
+       
+          const normalizedRoom = `room-${room}`; // Add prefix if needed
+          console.log("Typing event received:", { room, user, isTyping });
+          console.log("Current active room:", activeRoom);
+    
+          if (normalizedRoom === activeRoom) {
+            console.log("Setting typing status for room:", activeRoom);
+            setTypingStatus(isTyping ? `${user} is typing...` : "");
+          }
+        });
+      }
+    
+      return () => {
+        socket.current?.off("userTyping");
+      };
+    }, [activeRoom]);
+  
+  
+  
+  
+  
   const fetchChatHistory = async (roomId) => {
     try {
       const response = await fetch(`http://localhost:5000/api/chathistory/${roomId}`);
@@ -215,15 +227,17 @@ const AgentDashboard: React.FC = () => {
 
     const room = `room-${customer.customerId}`;
 
-    setActiveRoom(room);
+    
     socket.current?.emit("join-room", {
       room,
+      user: "Agent",
       customerId: customer.customerId,
     });
     setMappedRoom(room);
+    setActiveRoom(room);
     fetchChatHistory(room);
-    console.log(`Agent joining room: ${room}`);
-    console.log("Selected Customer ID:", customer.customerId);
+    //console.log(`Agent joining room: ${room}`);
+    //console.log("Selected Customer ID:", customer.customerId);
   };
 
   const handleSendMessage = () => {
@@ -270,8 +284,23 @@ const AgentDashboard: React.FC = () => {
         user: currentAgent.name,
         isTyping: true,
       });
+  
+      // Emit isTyping: false after a delay
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => {
+        socket.current?.emit("typing", {
+          room: activeRoom,
+          user: currentAgent.name,
+          isTyping: false,
+        });
+      }, 2000);
     }
   }, 300);
+  
+  
+  
+  
+  
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col overflow-hidden">
@@ -300,11 +329,11 @@ const AgentDashboard: React.FC = () => {
             <p className="text-center text-gray-500">No active conversations</p>
           )}
         </div>
-        <div className="flex-1 flex flex-col bg-white p-6 shadow-md h-full overflow-hidden">
+        <div className="flex-1 flex flex-col bg-white p-6 shadow-md h-full">
           {selectedCustomer ? (
             <>
-              <div className="flex justify-between items-center">
-                <h3 className="text-xl font-bold mb-2">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-xl font-bold">
                   Chat with {selectedCustomer}
                 </h3>
                 <button
@@ -315,8 +344,8 @@ const AgentDashboard: React.FC = () => {
                 </button>
               </div>
               <div
-                className="flex-1 p-4 border bg-gray-50 rounded overflow-y-auto"
-                style={{ maxHeight: "70vh" }}
+                className="flex-1 border bg-gray-50 rounded overflow-y-auto p-4"
+                style={{ maxHeight: "70vh" }} // Ensure the chat area is scrollable
               >
                 {activeRoom && chatHistory[activeRoom]?.length > 0 ? (
                   chatHistory[activeRoom].map((chat, index) => (
@@ -349,27 +378,31 @@ const AgentDashboard: React.FC = () => {
                     No chat history available...
                   </p>
                 )}
-              </div>
+                            </div>
+                            {typingStatus && (
+                <p className="text-sm text-gray-500 mt-2">{typingStatus}</p>
+              )}
               <div className="flex items-center space-x-2 mt-4">
                 <input
                   type="text"
+                  placeholder="Type your message..."
                   value={message}
-                  onKeyDown={handleTyping}
                   onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Type a message..."
-                  className="flex-1 p-2 border rounded"
+                  onKeyUp={handleTyping}
+                  className="flex-1 px-4 py-2 border rounded shadow-sm focus:outline-none focus:ring focus:ring-blue-200"
                 />
                 <button
                   onClick={handleSendMessage}
-                  className="px-4 py-2 bg-blue-500 text-white rounded"
+                  className="px-4 py-2 bg-blue-500 text-white font-bold rounded hover:bg-blue-600 transition"
                 >
                   Send
                 </button>
               </div>
+             
             </>
           ) : (
-            <p className="text-center text-gray-500">
-              Select a customer to start chatting
+            <p className="text-center text-gray-500 flex items-center justify-center h-full">
+              Select a customer to start a conversation.
             </p>
           )}
         </div>

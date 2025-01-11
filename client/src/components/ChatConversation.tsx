@@ -72,7 +72,16 @@ const ChatConversation: React.FC<ChatConversationProps> = ({
             </strong>
             <p>{message.message}</p>
             <small className="block text-xs mt-1 text-gray-200">
-              {new Date(message.created_at).toLocaleString()}
+              {new Date(message.created_at).toLocaleString("en-IN", {
+                timeZone: "Asia/Kolkata",
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+                hour12: true,
+              })}
             </small>
           </div>
         </div>

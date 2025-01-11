@@ -8,7 +8,9 @@ const CustomerDashboard: React.FC = () => {
   const [message, setMessage] = useState<string>("");
   const [chatHistory, setChatHistory] = useState<Record<string, any[]>>({});
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
-  const [isTyping, setIsTyping] = useState<boolean>(false);
+
+  const [activeRoom, setActiveRoom] = useState<string | null>(null);
+  const [typingStatus, setTypingStatus] = useState<string>("");
 
   const socket = useRef<Socket | null>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -21,7 +23,6 @@ const CustomerDashboard: React.FC = () => {
     role: "Customer",
     email: "sp@gmail.com",
   };
-
   useEffect(() => {
     if (!socket.current) {
       socket.current = io("http://localhost:5000");
@@ -42,7 +43,7 @@ const CustomerDashboard: React.FC = () => {
     };
   }, []);
   useEffect(() => {
-    console.log(currentUser);
+   // console.log(currentUser);
     if (!socket.current) return;
 
     socket.current.on(
@@ -69,8 +70,29 @@ const CustomerDashboard: React.FC = () => {
     return () => {
       socket.current?.off("receive-message");
     };
-  }, [selectedCategory]);
-
+  }, [selectedCategory,currentUser.id]);
+  useEffect(() => {
+    if (socket.current) {
+      socket.current.on("userTyping", ({ room, user, isTyping }) => {
+     
+        const normalizedRoom = `room-${room}`; // Add prefix if needed
+        console.log("Typing event received:", { room, user, isTyping });
+        console.log("Current active room:", activeRoom);
+  
+        if (normalizedRoom === activeRoom) {
+          console.log("Setting typing status for room:", activeRoom);
+          setTypingStatus(isTyping ? `${user} is typing...` : "");
+        }
+      });
+    }
+  
+    return () => {
+      socket.current?.off("userTyping");
+    };
+  }, [activeRoom]);
+  
+  
+  
   useEffect(() => {
     if (selectedCategory) {
       const savedChatHistory = localStorage.getItem("chatHistory");
@@ -115,13 +137,6 @@ const CustomerDashboard: React.FC = () => {
     }
   };
 
-  const debounce = (func: (...args: any[]) => void, delay: number) => {
-    let timeoutId: ReturnType<typeof setTimeout>;
-    return (...args: any[]) => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => func(...args), delay);
-    };
-  };
 
   const joinRoom = (category: string) => {
     if (!category) {
@@ -132,26 +147,43 @@ const CustomerDashboard: React.FC = () => {
     setSelectedCategory(category);
 
     const room = `room-${currentUser.id}`;
-
-    console.log(`Customer joining room: ${room}`);
     socket.current?.emit("join-room", {
       room,
       user: currentUser.name,
       customerId: currentUser.id,
       category: category,
     });
+    setActiveRoom(room);
   };
 
+  const debounce = (func: (...args: any[]) => void, delay: number) => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+    return (...args: any[]) => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => func(...args), delay);
+    };
+  };
+  
   const handleTyping = debounce(() => {
     if (selectedCategory) {
       const room = `room-${currentUser.id}`;
       socket.current?.emit("typing", {
         room,
         user: currentUser.name,
-        isTyping: true,
+        isTyping: true, // Emit typing event
       });
+  
+      // Emit stop typing event after a delay (e.g., 2 seconds)
+      setTimeout(() => {
+        socket.current?.emit("typing", {
+          room,
+          user: currentUser.name,
+          isTyping: false,
+        });
+      }, 2000); // Adjust delay as needed
     }
   }, 300);
+  
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col ">
@@ -279,9 +311,10 @@ const CustomerDashboard: React.FC = () => {
                     )}
                   </div>
 
-                  {isTyping && (
-                    <p className="text-sm text-gray-500">Agent is typing...</p>
-                  )}
+                  {typingStatus && (
+                <p className="text-sm text-gray-500 mt-2">{typingStatus}</p>
+              )}
+
                   <div className="flex items-center mt-4">
                     <input
                       type="text"
