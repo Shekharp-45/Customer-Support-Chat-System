@@ -60,7 +60,7 @@ io.on("connection", (socket) => {
           const newRoomId = uuidv4();
           roomMapping[room] = newRoomId;
           console.log(`Room "${room}" mapped to UUID "${newRoomId}"`);
-          const defaultCategoryId = 1; 
+          const defaultCategoryId = 1;
 
           await pool.query(
             `INSERT INTO chat_sessions (id, category_id, customer_id) VALUES ($1, $2, $3)`,
@@ -187,7 +187,7 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     if (activeCustomers.has(socket.id)) {
       activeCustomers.delete(socket.id);
-      emitActiveCustomers(); 
+      emitActiveCustomers();
     }
     console.log(chalk.magenta("User disconnected:", socket.id));
   });

@@ -48,23 +48,28 @@ const ChatConversation: React.FC<ChatConversationProps> = ({
   }
 
   return (
-    <div className="p-4 bg-gray-100 rounded-md shadow-md max-w-lg mx-auto h-96 overflow-y-auto">
+    <div className="p-4 bg-gray-100 rounded-md shadow-md mx-auto h-[80vh] overflow-y-auto">
       {messages.map((message, index) => (
         <div
           key={index}
           className={`flex ${
-            message.sender_id === "79f82015-d9a2-4b3b-a34c-9c60601604ed"
+            message.sender_id === "f82b7e8f-2e62-490a-904b-52a24a109b53"
               ? "justify-start"
               : "justify-end"
           } mb-4`}
         >
           <div
             className={`${
-              message.sender_id === "79f82015-d9a2-4b3b-a34c-9c60601604ed"
+              message.sender_id === "f82b7e8f-2e62-490a-904b-52a24a109b53"
                 ? "bg-blue-500 text-white"
                 : "bg-gray-500 text-white"
             } p-3 rounded-lg max-w-xs`}
           >
+            <strong>
+              {message.sender_id === "f82b7e8f-2e62-490a-904b-52a24a109b53"
+                ? "User"
+                : "Agent"}
+            </strong>
             <p>{message.message}</p>
             <small className="block text-xs mt-1 text-gray-200">
               {new Date(message.created_at).toLocaleString()}

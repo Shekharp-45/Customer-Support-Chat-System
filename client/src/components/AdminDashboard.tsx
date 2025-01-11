@@ -5,13 +5,18 @@ import DisplayAgents from "../components/DisplayAgents.tsx";
 import ChatConversation from "../components/ChatConversation.tsx";
 
 const AdminDashboard: React.FC = () => {
-  const [agents, setAgents] = useState<{ fullName: string; email: string; mobile: string }[]>([]);
+  const [agents, setAgents] = useState<
+    { fullName: string; email: string; mobile: string }[]
+  >([]);
   const [selectedView, setSelectedView] = useState<string>("Add Agents");
   const [chatSessions, setChatSessions] = useState<string[]>([]);
-  const [selectedChatSessionId, setSelectedChatSessionId] = useState<string | null>(null);
-
+  const [selectedChatSessionId, setSelectedChatSessionId] = useState<
+    string | null
+  >(null);
+  const senderIdToAgentName: { [key: string]: string } = {
+    "79f82015-d9a2-4b3b-a34c-9c60601604ed": "SM",
+  };
   useEffect(() => {
-    // Load agents from localStorage
     const storedAgents = localStorage.getItem("agents");
     if (storedAgents) {
       setAgents(JSON.parse(storedAgents));
@@ -19,31 +24,34 @@ const AdminDashboard: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // Save agents to localStorage
     localStorage.setItem("agents", JSON.stringify(agents));
   }, [agents]);
 
   useEffect(() => {
     const fetchChatSessions = async () => {
       try {
-        const response = await fetch("http://localhost:5000/api/chats/conversations");
+        const response = await fetch(
+          "http://localhost:5000/api/chats/conversations"
+        );
         if (!response.ok) {
           throw new Error("Failed to fetch chat sessions");
         }
-        const result = await response.json();
-        console.log("Fetched chat sessions:", result.data); // Access the 'data' property
-        setChatSessions(result.data); // Set chatSessions with the actual data array
+        const result: { data: string[] } = await response.json();
+        const uniqueSessions = Array.from(new Set(result.data));
+        setChatSessions(uniqueSessions);
       } catch (error) {
         console.error("Error fetching chat sessions:", error);
       }
     };
-  
+
     fetchChatSessions();
   }, []);
-  
-  
 
-  const onAddAgent = async (agent: { fullName: string; email: string; mobile: string }) => {
+  const onAddAgent = async (agent: {
+    fullName: string;
+    email: string;
+    mobile: string;
+  }) => {
     try {
       const response = await fetch("http://localhost:5000/api/auth/admin", {
         method: "POST",
@@ -108,7 +116,10 @@ const AdminDashboard: React.FC = () => {
           {selectedView === "Add Agents" && (
             <div>
               <AddAgentForm onAddAgent={onAddAgent} />
-              <DisplayAgents agents={agents} onDeleteAgent={handleDeleteAgent} />
+              <DisplayAgents
+                agents={agents}
+                onDeleteAgent={handleDeleteAgent}
+              />
             </div>
           )}
 
@@ -132,9 +143,13 @@ const AdminDashboard: React.FC = () => {
                     <option value="" disabled>
                       Select a conversation
                     </option>
-                    {chatSessions.map((sessionId) => (
+                    {chatSessions.map((sessionId, index) => (
                       <option key={sessionId} value={sessionId}>
-                        {sessionId}
+                        {`Customer (${index + 1}) handled by ${
+                          senderIdToAgentName[
+                            "79f82015-d9a2-4b3b-a34c-9c60601604ed"
+                          ] || "Unknown Agent"
+                        }`}
                       </option>
                     ))}
                   </select>
@@ -142,7 +157,9 @@ const AdminDashboard: React.FC = () => {
               ) : (
                 <p className="text-gray-500">No conversations available.</p>
               )}
-              {selectedChatSessionId && <ChatConversation chatSessionId={selectedChatSessionId} />}
+              {selectedChatSessionId && (
+                <ChatConversation chatSessionId={selectedChatSessionId} />
+              )}
             </div>
           )}
         </div>
