@@ -35,7 +35,6 @@ io.on("connection", (socket) => {
   console.log(chalk.green(`Client connected: ${socket.id}`));
 
   socket.on("join-room", async ({ room, user, customerId, category }) => {
-    
     try {
       if (!room || typeof room !== "string") {
         console.error("Invalid room name:", room);
@@ -75,7 +74,7 @@ io.on("connection", (socket) => {
       }
       if (room) {
         socket.join(room);
-        console.log("User joining room:", user,room);
+        console.log("User joining room:", user, room);
       } else {
         console.error("No room specified.");
       }
@@ -101,7 +100,7 @@ io.on("connection", (socket) => {
   socket.on(
     "send-message",
     async ({ room, message, sender, timestamp }, callback) => {
-     // console.log(`Received message for room ${room}:`, { message, sender });
+      // console.log(`Received message for room ${room}:`, { message, sender });
 
       try {
         if (!room || !message || !sender) {
@@ -150,16 +149,17 @@ io.on("connection", (socket) => {
           const newMessage = result.rows[0];
           const isAgent =
             newMessage.sender_id === "79f82015-d9a2-4b3b-a34c-9c60601604ed";
-         // console.log("new message ", newMessage);
+          // console.log("new message ", newMessage);
           console.log("is agent??", isAgent);
           socket.to(room).emit("receive-message", {
             message: newMessage.message,
             sender: newMessage.sender_id,
-            timestamp: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+            timestamp: new Date().toLocaleString("en-IN", {
+              timeZone: "Asia/Kolkata",
+            }),
             room,
             isAgent,
           });
-          
 
           callback && callback({ status: "success", message, room });
         } else {
@@ -174,28 +174,29 @@ io.on("connection", (socket) => {
   );
 
   socket.on("typing", ({ room, user, isTyping }) => {
-    // Normalize room name to remove prefix if necessary
     const normalizedRoom = room.startsWith("room-") ? room.slice(5) : room;
-  
+
     if (normalizedRoom) {
-      console.log(`Typing by ${user} in room: ${normalizedRoom}, isTyping: ${isTyping}`);
+      console.log(
+        `Typing by ${user} in room: ${normalizedRoom}, isTyping: ${isTyping}`
+      );
       socket.to(normalizedRoom).emit("userTyping", {
         room: normalizedRoom,
         user,
         isTyping,
-      }); // For others
-  
+      });
+      if (room) {
+        socket.to(room).emit("typing", { room, user, isTyping });
+      }
       socket.emit("userTyping", {
         room: normalizedRoom,
         user,
         isTyping,
-      }); // For sender (debugging)
+      });
     } else {
       console.error("Invalid room for typing event.");
     }
   });
-  
-  
 
   socket.on("disconnect", () => {
     if (activeCustomers.has(socket.id)) {

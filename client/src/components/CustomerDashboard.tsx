@@ -43,7 +43,7 @@ const CustomerDashboard: React.FC = () => {
     };
   }, []);
   useEffect(() => {
-   // console.log(currentUser);
+    // console.log(currentUser);
     if (!socket.current) return;
 
     socket.current.on(
@@ -70,29 +70,26 @@ const CustomerDashboard: React.FC = () => {
     return () => {
       socket.current?.off("receive-message");
     };
-  }, [selectedCategory,currentUser.id]);
+  }, [selectedCategory, currentUser.id]);
   useEffect(() => {
     if (socket.current) {
       socket.current.on("userTyping", ({ room, user, isTyping }) => {
-     
-        const normalizedRoom = `room-${room}`; // Add prefix if needed
+        const normalizedRoom = `room-${room}`;
         console.log("Typing event received:", { room, user, isTyping });
         console.log("Current active room:", activeRoom);
-  
+
         if (normalizedRoom === activeRoom) {
           console.log("Setting typing status for room:", activeRoom);
-          setTypingStatus(isTyping ? `${user} is typing...` : "");
+          setTypingStatus(isTyping ? `Agent is typing...` : "");
         }
       });
     }
-  
+
     return () => {
       socket.current?.off("userTyping");
     };
   }, [activeRoom]);
-  
-  
-  
+
   useEffect(() => {
     if (selectedCategory) {
       const savedChatHistory = localStorage.getItem("chatHistory");
@@ -137,7 +134,6 @@ const CustomerDashboard: React.FC = () => {
     }
   };
 
-
   const joinRoom = (category: string) => {
     if (!category) {
       console.error("Category must be selected to join a room.");
@@ -163,27 +159,25 @@ const CustomerDashboard: React.FC = () => {
       timeoutId = setTimeout(() => func(...args), delay);
     };
   };
-  
+
   const handleTyping = debounce(() => {
     if (selectedCategory) {
       const room = `room-${currentUser.id}`;
       socket.current?.emit("typing", {
         room,
         user: currentUser.name,
-        isTyping: true, // Emit typing event
+        isTyping: true,
       });
-  
-      // Emit stop typing event after a delay (e.g., 2 seconds)
+
       setTimeout(() => {
         socket.current?.emit("typing", {
           room,
           user: currentUser.name,
           isTyping: false,
         });
-      }, 2000); // Adjust delay as needed
+      }, 2000);
     }
   }, 300);
-  
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col ">
@@ -312,8 +306,8 @@ const CustomerDashboard: React.FC = () => {
                   </div>
 
                   {typingStatus && (
-                <p className="text-sm text-gray-500 mt-2">{typingStatus}</p>
-              )}
+                    <p className="text-sm text-gray-500 mt-2">{typingStatus}</p>
+                  )}
 
                   <div className="flex items-center mt-4">
                     <input
